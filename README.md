@@ -1,5 +1,3 @@
-Here’s a **basic README.md** draft you can drop into your repo and expand later:
-
 ---
 
 # 📊 Chicago Crime Data Explorer (Streamlit App)
