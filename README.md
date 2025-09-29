@@ -28,9 +28,9 @@ streamlit-chicago-crime-app/
 │   └── README.md
 ├── app/                     # Streamlit app code
 │   ├── main.py
-│   ├── pages/
-│   ├── components/
-│   └── utils/
+│   ├── pages/               # UI sections
+│   ├── components/          # Lego blocks (charts, widgets, maps)
+│   └── utils/               # Backend logic (data prep, constants)
 ├── notebooks/               # Data exploration notebooks
 └── docs/                    # Documentation & screenshots
 ```
