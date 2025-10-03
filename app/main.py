@@ -42,9 +42,7 @@ COMPARISON_METRICS = ["Total Cases", "Total Arrests", "Total Violent Cases",
 # ----------------------------
 # File Path
 # ----------------------------
-current_file_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_file_dir)
-file_path = os.path.join(parent_dir, "data", "agg", "chicago_crime_summary_stats.csv")
+file_path = os.path.join("data","agg", "chicago_crime_summary_stats.csv")
 
 df = load_data(file_path)
 
