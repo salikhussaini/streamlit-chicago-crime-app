@@ -1,5 +1,6 @@
 # dashboard.py
 import streamlit as st
+import altair as alt
 import pandas as pd
 import os
 
@@ -69,7 +70,7 @@ report_types = df["Report Type"].unique().tolist()
 selected_report_type = st.sidebar.multiselect(
     "Select Report Type",
     report_types,
-    default=report_types
+    default=report_types[0]
 )
 
 # Apply filters
@@ -97,67 +98,125 @@ if not filtered_df.empty:
 
 
 # ----------------------------
-# KPIs (Snapshot)
+# Organize Dashboard into Tabs
 # ----------------------------
-st.header("Summary Metrics")
+st.header("📌 Dashboard Views")
 
-if not filtered_df.empty:
-    # Case Counts
-    st.subheader("📊 Case Counts")
-    cols = st.columns(len(CASE_METRICS))
-    for c, m in zip(cols, CASE_METRICS):
-        c.metric(label=m, value=f"{snapshot[m]:,.0f}")
+tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison = st.tabs(
+    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "📈 Trends", "📉 Comparison"]
+)
 
-    # Unique Categories
-    st.subheader("🔑 Unique Categories")
-    cols = st.columns(len(UNIQUE_METRICS))
-    for c, m in zip(cols, UNIQUE_METRICS):
-        c.metric(label=m, value=f"{snapshot[m]:,.0f}")
+# --- Overview Tab ---
+with tab_overview:
+    if not filtered_df.empty:
+        st.subheader("Summary Metrics")
 
-    # Current Rates
-    st.subheader("📈 Current Rates (%)")
-    rate_df = snapshot[RATE_METRICS].to_frame("Rate (%)")
-    st.bar_chart(rate_df)
+        # Case counts
+        st.subheader("📊 Case Counts")
+        cols = st.columns(len(CASE_METRICS))
+        for c, m in zip(cols, CASE_METRICS):
+            c.metric(label=m, value=f"{snapshot[m]:,.0f}")
 
-    # Growth & Rate Changes
-    st.subheader("📉 Growth & Rate Changes (%)")
-    change_df = snapshot[CHANGE_METRICS].to_frame("Change (%)")
-    st.bar_chart(change_df)
+        # Unique categories
+        st.subheader("🔑 Unique Categories")
+        cols = st.columns(len(UNIQUE_METRICS))
+        for c, m in zip(cols, UNIQUE_METRICS):
+            c.metric(label=m, value=f"{snapshot[m]:,.0f}")
 
+        # Current rates
+        st.subheader("📈 Current Rates (%)")
+        st.bar_chart(snapshot[RATE_METRICS].to_frame("Rate (%)"))
 
-# ----------------------------
-# Trends Over Time
-# ----------------------------
-st.header("Trends Over Time")
+        # Growth & rate changes
+        st.subheader("📉 Growth & Rate Changes (%)")
+        st.bar_chart(snapshot[CHANGE_METRICS].to_frame("Change (%)"))
 
-if not trend_df.empty:
-    trend_indexed = trend_df.set_index("End Date")
-
-    # User-selectable trend window
-    months_back = st.slider("Select Trend Window (Months)", 6, 36, 20)
-    trend_window = trend_indexed.loc[selected_end_date - pd.DateOffset(months=months_back):selected_end_date]
-
-    tabs = st.tabs(["Rates", "Case Growth %"])
-    with tabs[0]:
-        st.line_chart(trend_window[RATE_METRICS])
-    with tabs[1]:
-        st.line_chart(trend_window["Case Growth %"])
+        # Highlight top crime
+        st.subheader("🔥 Key Crime Highlight")
+        st.metric(
+            label=f"Most Reported Crime ({snapshot['Top 1 Crime Type']})",
+            value=f"{snapshot['Top 1 Crime Count']:,}"
+        )
 
 
-# ----------------------------
-# Prior Period Comparison
-# ----------------------------
-st.header("Prior Period Comparison")
+# --- Crime Composition Tab ---
+with tab_crimes:
+    st.subheader("🚨 Top Crimes")
+    if not filtered_df.empty:
+        top_crimes = []
+        for i in range(1, 12):  # Top 1 ... Top 11
+            crime_col = f"Top {i} Crime Type"
+            count_col = f"Top {i} Crime Count"
+            if crime_col in snapshot and count_col in snapshot:
+                top_crimes.append((snapshot[crime_col], snapshot[count_col]))
 
-if not filtered_df.empty:
-    st.write("Current vs Prior Metrics")
+        top_crimes_df = pd.DataFrame(top_crimes, columns=["Crime Type", "Count"])
+        top_crimes_df = top_crimes_df.sort_values("Count", ascending=False)
 
-    current = snapshot[COMPARISON_METRICS]
-    prior = snapshot[[c + "_prior" for c in COMPARISON_METRICS]].rename(
-        lambda x: x.replace("_prior", ""), axis=0
-    )
+        crime_chart = alt.Chart(top_crimes_df).mark_bar().encode(
+            x=alt.X("Count:Q", sort="-y"),
+            y=alt.Y("Crime Type:N", sort="-x"),
+            tooltip=["Crime Type", "Count"]
+        ).properties(width=600, height=400)
 
-    comparison = pd.DataFrame({"Current": current, "Prior": prior})
-    comparison["Δ"] = comparison["Current"] - comparison["Prior"]
+        st.altair_chart(crime_chart, use_container_width=True)
 
-    st.dataframe(comparison.style.format("{:,.2f}"))
+# --- Geographic Breakdown Tab ---
+with tab_geo:
+    st.subheader("🏙️ Geographic Breakdown")
+    if not filtered_df.empty:
+        # Districts
+        district_cols = [c for c in snapshot.index if c.startswith("District_") and not c.endswith("_prior")]
+        district_data = snapshot[district_cols].to_frame("Cases").reset_index()
+        district_data["District"] = district_data["index"].str.replace("District_", "")
+        district_data = district_data.sort_values("Cases", ascending=False)
+
+        district_chart = alt.Chart(district_data).mark_bar().encode(
+            x=alt.X("Cases:Q"),
+            y=alt.Y("District:N", sort="-x"),
+            tooltip=["District", "Cases"]
+        ).properties(width=600)
+
+        st.subheader("Cases by District")
+        st.altair_chart(district_chart, use_container_width=True)
+
+        # Wards
+        ward_cols = [c for c in snapshot.index if c.startswith("Ward_") and not c.endswith("_prior")]
+        ward_data = snapshot[ward_cols].to_frame("Cases").reset_index()
+        ward_data["Ward"] = ward_data["index"].str.replace("Ward_", "")
+        ward_data = ward_data.sort_values("Cases", ascending=False)
+
+        ward_chart = alt.Chart(ward_data).mark_bar().encode(
+            x=alt.X("Cases:Q"),
+            y=alt.Y("Ward:N", sort="-x"),
+            tooltip=["Ward", "Cases"]
+        ).properties(width=600)
+
+        st.subheader("Cases by Ward")
+        st.altair_chart(ward_chart, use_container_width=True)
+
+# --- Trends Tab ---
+with tab_trends:
+    st.subheader("📈 Trends Over Time")
+    if not trend_df.empty:
+        months_back = st.slider("Select Trend Window (Months)", 6, 36, 20)
+        trend_window = trend_df[trend_df['End Date'] >= selected_end_date - pd.DateOffset(months=months_back)].set_index("End Date")
+
+        subtab1, subtab2 = st.tabs(["Rates", "Case Growth %"])
+        with subtab1:
+            st.line_chart(trend_window[RATE_METRICS])
+        with subtab2:
+            st.line_chart(trend_window["Case Growth %"])
+
+# --- Comparison Tab ---
+with tab_comparison:
+    st.subheader("📉 Prior Period Comparison")
+    if not filtered_df.empty:
+        current = snapshot[COMPARISON_METRICS]
+        prior = snapshot[[c + "_prior" for c in COMPARISON_METRICS]].rename(
+            lambda x: x.replace("_prior", ""), axis=0
+        )
+        comparison = pd.DataFrame({"Current": current, "Prior": prior})
+        comparison["Δ"] = comparison["Current"] - comparison["Prior"]
+
+        st.dataframe(comparison.style.format("{:,.2f}"))
