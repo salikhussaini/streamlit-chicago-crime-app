@@ -250,7 +250,7 @@ with tab_geo:
             r = pdk.Deck(
                 layers=[layer],
                 initial_view_state=view_state,
-                tooltip={"text": f"{geo_type}: {{properties.{geo_field}}}\nCases: {{properties.cases}}"}
+                tooltip={"text": f"{geo_type}: {{{geo_field}}}\nCases: {{cases}}"}
             )
 
             st.pydeck_chart(r)
