@@ -48,7 +48,7 @@ COMPARISON_PAIRS = list(zip(CASE_METRICS, PRIOR_METRICS))
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = os.path.join("../", "data", "agg", "Crime_20250927_20251010.parquet")
+file_path = "../data/agg/Crime_20250927_20251010.parquet"
 df = load_data(file_path)
 
 if df.empty:
