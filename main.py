@@ -48,7 +48,7 @@ COMPARISON_PAIRS = list(zip(CASE_METRICS, PRIOR_METRICS))
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = "../data/agg/Crime_20250927_20251010.parquet"
+file_path = "data/agg/Crime_20250927_20251010.parquet"
 df = load_data(file_path)
 
 if df.empty:
@@ -169,8 +169,8 @@ with tab_geo:
 
         # Load the corresponding GeoJSON
         geojson_path = (
-            "../data/geojson/chicago_wards.geojson" if geo_type == "Ward"
-            else "../data/geojson/chicago_districts.geojson"
+            "data/geojson/chicago_wards.geojson" if geo_type == "Ward"
+            else "data/geojson/chicago_districts.geojson"
         )
 
         try:
