@@ -6,6 +6,9 @@ import os
 import geopandas as gpd
 import pydeck as pdk
 import numpy as np
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+
 
 # ----------------------------
 # Load Data
@@ -18,6 +21,7 @@ def load_data(file_path: str) -> pd.DataFrame:
             df = pd.read_csv(file_path, parse_dates=["report_date", "start_date", "end_date"])
         elif file_path.endswith('.parquet'):
             df = pd.read_parquet(file_path)
+            print(df.columns)
         else:
             st.error("Unsupported file format. Use CSV or Parquet.")
             return pd.DataFrame()
@@ -26,33 +30,22 @@ def load_data(file_path: str) -> pd.DataFrame:
         return pd.DataFrame()
     return df
 
-
-# ----------------------------
-# Constants for Metrics
-# ----------------------------
-CASE_METRICS = [
-    'total_cases', 'unique_crime_types', 'total_arrests',
-    'total_domestic_cases', 'total_violent_cases', 'total_property_cases'
-]
-
-UNIQUE_METRICS = ['unique_beats', 'unique_wards', 'unique_districts']
-
-PRIOR_METRICS = [
-    'prior_total_cases', 'prior_unique_crime_types', 'prior_total_arrests',
-    'prior_total_domestic_cases', 'prior_total_violent_cases',
-    'prior_total_property_cases'
-]
-
-COMPARISON_PAIRS = list(zip(CASE_METRICS, PRIOR_METRICS))
-
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = "data/agg/Crime_20250927_20251010.parquet"
+file_path = "data/agg/Crime_20250927_20251013.parquet"
 df = load_data(file_path)
 
 if df.empty:
     st.stop()
+
+# ----------------------------
+# Constants for Metrics
+# ----------------------------
+CASE_METRICS = [c for c in df.columns if c.startswith("total_") and not c.startswith("prior_")]
+UNIQUE_METRICS = ['unique_beats', 'unique_wards', 'unique_districts']
+PRIOR_METRICS = [f"prior_{m[6:]}" for m in CASE_METRICS if f"prior_{m[6:]}" in df.columns]
+COMPARISON_PAIRS = list(zip(CASE_METRICS, PRIOR_METRICS))
 
 # ----------------------------
 # Dashboard Title
@@ -113,8 +106,10 @@ with tab_overview:
         # Case counts
         st.subheader("📊 Case Counts")
         cols = st.columns(len(CASE_METRICS))
-        for c, m in zip(cols, CASE_METRICS):
-            c.metric(label=m.replace("_", " ").title(), value=f"{snapshot[m]:,.0f}")
+        for i in range(0, len(CASE_METRICS), 3):
+            cols = st.columns(3)
+            for c, m in zip(cols, CASE_METRICS[i:i+3]):
+                c.metric(label=m.replace("_", " ").title(), value=f"{snapshot[m]:,.0f}")
 
         # Unique categories
         st.subheader("🔑 Unique Categories")
@@ -165,13 +160,19 @@ with tab_geo:
 
     if not filtered_df.empty:
         # Dropdown to select geography type
-        geo_type = st.selectbox("Select Geography Level", ["Ward", "District"], index=0)
-
-        # Load the corresponding GeoJSON
-        geojson_path = (
-            "data/geojson/chicago_wards.geojson" if geo_type == "Ward"
-            else "data/geojson/chicago_districts.geojson"
+        geo_type = st.selectbox(
+            "Select Geography Level",
+            ["Ward", "District", "Community Area", "Beat"],
+            index=0
         )
+
+        # Load the corresponding GeoJSON file
+        geojson_path = {
+            "Ward": "data/geojson/chicago_wards.geojson",
+            "District": "data/geojson/chicago_districts.geojson",
+            "Community Area": "data/geojson/chicago_community_areas.geojson",
+            "Beat": "data/geojson/chicago_beats.geojson"
+        }.get(geo_type, None)
 
         try:
             geo_gdf = gpd.read_file(geojson_path)
@@ -185,50 +186,58 @@ with tab_geo:
                 if isinstance(x, str):
                     return [i.strip() for i in x.split(",") if i.strip()]
                 return list(x)
-
-            if geo_type == "Ward":
-                ids = snapshot.get("Ward", [])
-                counts = snapshot.get("Ward_case_counts")
-                geo_field = "ward"
-            else:
-                ids = snapshot.get("District", [])
-                counts = snapshot.get("District_case_count", [])
-                geo_field = "dist_num"
-
-            ids = to_list(ids)
-            counts = [int(v) for v in to_list(counts) if str(v).isdigit()]
-
+            def extract_geo_data(snapshot, geo_type):
+                mapping = {
+                    "Ward": ("Ward", "Ward_case_counts", "ward"),
+                    "District": ("District", "District_case_count", "dist_num"),
+                    "Community Area": ("community_area", "community_area_case_counts", "area_numbe"),
+                    "Beat": ("Beat", "Beat_case_counts", "beat_num")
+                }
+                id_key, count_key, geo_field = mapping[geo_type]
+                ids = snapshot.get(id_key, [])
+                counts = snapshot.get(count_key, [])
+                def to_list(x): return [i.strip() for i in x.split(",") if i.strip()] if isinstance(x, str) else list(x)
+                ids = to_list(ids)
+                counts = [int(v) for v in to_list(counts) if str(v).isdigit()]
+                return ids, counts, geo_field
+            
             # Match lengths
+            ids, counts, geo_field = extract_geo_data(snapshot, geo_type)
             min_len = min(len(ids), len(counts))
-            ids, counts = ids[:min_len], counts[:min_len]
 
             count_df = pd.DataFrame({
                 geo_field: [str(i) for i in ids],
                 "cases": counts
-            })
-            count_df = count_df.dropna()
-            # ✅ Clean IDs safely (handles "27.0", "27", 27.0, etc.)
+            }).dropna()
+
+            # Clean IDs safely (handles "27.0", "27", 27.0, etc.)
             count_df[geo_field] = (
-                pd.to_numeric(count_df[geo_field], errors="coerce")  # convert to numeric safely
-                .astype("Int64")                                     # keep integers with NA support
-                .astype(str)                                         # convert back to string for merge
+                pd.to_numeric(count_df[geo_field], errors="coerce")
+                .astype("Int64")
+                .astype(str)
             )
 
             # Merge with GeoJSON
-            geo_gdf[geo_field] = geo_gdf[geo_field].astype(str)
+            geo_gdf[geo_field] = pd.to_numeric(geo_gdf[geo_field], errors="coerce").astype("Int64").astype(str)
             merged = geo_gdf.merge(count_df, on=geo_field, how="left")
-            merged["cases"] = merged["cases"].fillna(0)
+            merged["cases"] = merged["cases"].fillna(0).astype(float)
 
-            # Color normalization
-            max_cases = max(merged["cases"].max(), 1)
-            merged["color_r"] = (merged["cases"] / max_cases * 255).fillna(0).astype(int)
-            merged["color_g"] = 50
-            merged["color_b"] = 150
-            merged["color_a"] = 180
+            # --- Linear Color Normalization ---
+            vmin = merged["cases"].min()
+            vmax = max(merged["cases"].max(), 1)
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+            cmap = cm.get_cmap("Reds")
+
+            # Map each case value to RGBA color (0–255)
+            rgba_colors = (cmap(norm(merged["cases"])) * 255).astype(int)
+            merged["color_r"] = rgba_colors[:, 0]
+            merged["color_g"] = rgba_colors[:, 1]
+            merged["color_b"] = rgba_colors[:, 2]
+            merged["color_a"] = 180  # keep constant opacity
 
             merged_json = merged.__geo_interface__
 
-            # Define Pydeck Layer
+            # --- Define Pydeck Layer ---
             layer = pdk.Layer(
                 "GeoJsonLayer",
                 merged_json,
@@ -255,12 +264,16 @@ with tab_geo:
 
             st.pydeck_chart(r)
 
-            st.caption(f"🟥 Darker red = higher crime count per {geo_type.lower()}")
+            # --- Add Legend / Caption ---
+            st.caption(f"🟥 Darker red = higher case count per {geo_type.lower()}")
+            st.markdown(
+                f"<small>Linear scale range: {vmin:,.0f} – {vmax:,.0f}</small>",
+                unsafe_allow_html=True
+            )
         else:
             st.info(f"{geo_type} shapefile not loaded — cannot show map.")
     else:
         st.info("No data for selected filters.")
-
 
 # --- Trends Tab ---
 with tab_trends:
@@ -271,13 +284,19 @@ with tab_trends:
             trend_df['end_date'] >= pd.to_datetime(selected_end_date) - pd.DateOffset(months=months_back)
         ]
 
-        trend_chart = alt.Chart(trend_window).mark_line(point=True).encode(
+        metric_choice = st.selectbox("Select Metric", ["total_cases", "total_arrests", "total_violent_cases"], index=0)
+        trend_window["rolling_avg"] = trend_window[metric_choice].rolling(4).mean()
+        chart = alt.Chart(trend_window).mark_line(point=True).encode(
             x="end_date:T",
-            y="total_cases:Q",
-            color="report_type:N",
-            tooltip=["report_type", "end_date", "total_cases"]
-        ).properties(width=700, height=400)
-        st.altair_chart(trend_chart, use_container_width=True)
+            y=alt.Y(f"{metric_choice}:Q", title=metric_choice.replace("_", " ").title()),
+            color=alt.value("#007BFF"),
+            tooltip=["end_date", metric_choice]
+        )
+        avg_line = alt.Chart(trend_window).mark_line(strokeDash=[5,5], color="red").encode(
+            x="end_date:T",
+            y="rolling_avg:Q"
+        )
+        st.altair_chart(chart + avg_line, use_container_width=True)
 
 
 # --- Comparison Tab ---
@@ -289,7 +308,7 @@ with tab_comparison:
             current_val = snapshot[curr]
             prior_val = snapshot[prev]
             delta = current_val - prior_val
-            pct_change = (delta / prior_val * 100) if prior_val else None
+            pct_change = (delta / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else np.nan
             comparison.append({
                 "Metric": curr.replace("_", " ").title(),
                 "Current": current_val,
