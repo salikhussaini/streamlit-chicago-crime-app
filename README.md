@@ -1,109 +1,86 @@
----
+# Chicago Crimes Dashboard & ETL
 
-# 📊 Chicago Crime Data Explorer (Streamlit App)
-
-An interactive **Streamlit dashboard** to explore and analyze **Chicago crime data**.
-This project allows users to filter, visualize, and map crime incidents by type, location, and time.
+## Project Purpose
+The **Chicago Crimes Dashboard & ETL** project aims to provide an interactive and insightful platform for analyzing crime data in Chicago. By leveraging historical and recent crime data, this project enables users to explore trends, visualize geographic distributions, and compare crime metrics over time. The dashboard is designed for policymakers, law enforcement agencies, researchers, and the general public to gain actionable insights into crime patterns and make data-driven decisions.
 
 ---
 
-## 🚀 Features
-
-* 📅 **Time-based trends**: Explore crime counts by year, month, and day.
-* 🗺️ **Geospatial visualization**: Map crime locations by district, ward, or community area.
-* 🔍 **Filtering**: Search by crime type, arrest status, domestic incidents, or location.
-* 📊 **Charts & insights**: Distribution of primary crime types, heatmaps, and comparison over time.
-
----
-
-## 📂 Project Structure
-
-```
-streamlit-chicago-crime-app/
-│
-├── README.md                # Project overview
-├── requirements.txt         # Dependencies
-├── data/                    # Sample dataset & dataset info
-│   ├── chicago_crime_sample.csv
-│   └── README.md
-├── app/                     # Streamlit app code
-│   ├── main.py
-│   ├── pages/               # UI sections
-│   ├── components/          # Lego blocks (charts, widgets, maps)
-│   └── utils/               # Backend logic (data prep, constants)
-├── notebooks/               # Data exploration notebooks
-└── docs/                    # Documentation & screenshots
-```
+## Features
+### Key Features of the Dashboard:
+- **📊 Overview Metrics**:
+  - Displays high-level crime statistics, including total cases, unique categories, and crime type breakdowns.
+- **🚨 Crime Composition**:
+  - Provides detailed insights into crime types and FBI codes, with visualizations for better understanding.
+- **🏙️ Geographic Visualizations**:
+  - Interactive maps to explore crime data by districts, wards, community areas, and police beats.
+- **📈 Trends Over Time**:
+  - Analyze crime trends over customizable time windows with rolling averages and comparisons.
+- **📉 Prior Period Comparison**:
+  - Compare current crime metrics with prior periods to identify changes and trends.
+- **Filters**:
+  - Dynamic filters for report type (e.g., R12, YTD) and reporting periods to customize the analysis.
 
 ---
 
-## 📊 Dataset
+## Data Sources
+The raw data used in this project is sourced from the **Chicago Police Department**'s publicly available crime data. The data includes detailed records of reported crimes, including dates, locations, and crime types. GeoJSON files for geographic visualizations are also included to map crime data to specific districts, wards, community areas, and beats.
 
-This project uses the **Chicago Police Department Crime Dataset** available on the [City of Chicago Data Portal](https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2).
-
-**Sample fields include:**
-
-* `date` – Date of incident
-* `primary_type` – Primary crime category
-* `description` – Subcategory of the crime
-* `location_description` – Where the incident occurred
-* `arrest` – Whether an arrest was made
-* `district`, `ward`, `community_area` – Geographic indicators
-* `latitude`, `longitude` – Coordinates for mapping
+### Data Directory:
+- **`data/raw_data/`**: Contains raw CSV files with crime data.
+- **`data/geojson/`**: GeoJSON files for mapping geographic areas.
+- **`data/transformed_data/`**: Intermediate data files generated during ETL processes.
+- **`data/gold_data/`**: Final processed data used for the dashboard.
 
 ---
 
-## ⚙️ Installation & Setup
-
+## Quick Start
 1. Clone the repository:
-
    ```bash
-   git clone https://github.com/your-username/streamlit-chicago-crime-app.git
-   cd streamlit-chicago-crime-app
+   git clone https://github.com/your-username/chicago-crimes-dashboard.git
+   cd chicago-crimes-dashboard
    ```
-
-2. Create a virtual environment (recommended):
-
+2. Install dependencies:
    ```bash
-   python -m venv venv
-   source venv/bin/activate   # Mac/Linux
-   venv\Scripts\activate      # Windows
+   python -m pip install -r requirements.txt
    ```
-
-3. Install dependencies:
-
+3. Run the dashboard:
    ```bash
-   pip install -r requirements.txt
+   streamlit run main.py
    ```
-
-4. Run the Streamlit app:
-
-   ```bash
-   streamlit run app/main.py
-   ```
+4. Place raw data files in the `data/raw_data/` directory.
 
 ---
 
-## 📸 Screenshots
-
-(Add screenshots or GIFs of your dashboard here once it’s running)
-
----
-
-## 🌐 Deployment
-
-This app can be deployed on:
-
-* [Streamlit Community Cloud](https://streamlit.io/cloud)
-* Hugging Face Spaces
-* Heroku or any cloud service supporting Python
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License.
+## Directory Structure
+```
+.
+├── main.py                # Streamlit dashboard entry point
+├── src/                   # ETL and data processing scripts
+│   └── src.py             # Core ETL functions
+├── data/                  # Data directory
+│   ├── geojson/           # GeoJSON files for map visualization
+│   ├── gold_data/         # Processed data (not committed)
+│   ├── raw_data/          # Raw data files (not committed)
+│   └── transformed_data/  # Intermediate transformed data (not committed)
+├── .gitignore             # Ignore unnecessary files
+├── requirements.txt       # Python dependencies
+└── readme.md              # Project documentation
+```
 
 ---
 
-Do you want me to also create a **starter `requirements.txt`** (with Streamlit, Pandas, Plotly, Pydeck, etc.) so you can launch this immediately?
+## Screenshots
+### Dashboard Overview:
+![Dashboard Overview](https://via.placeholder.com/800x400?text=Dashboard+Overview+Screenshot)
+
+### Geographic Visualization:
+![Geographic Visualization](https://via.placeholder.com/800x400?text=Geographic+Visualization+Screenshot)
+
+### Crime Trends:
+![Crime Trends](https://via.placeholder.com/800x400?text=Crime+Trends+Screenshot)
+
+---
+## Contributing to Chicago Crimes Dashboard
+Thank you for considering contributing! Here's how you can help:
+- Report bugs or suggest features via GitHub Issues.
+- Submit pull requests with clear descriptions and test coverage.
