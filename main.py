@@ -30,11 +30,30 @@ def load_data(file_path: str) -> pd.DataFrame:
     return df
 
 # ----------------------------
+# Load Forecast Data
+# ----------------------------
+@st.cache_data
+def load_forecast_data(file_path: str) -> pd.DataFrame:
+    """Load the crime count forecast data."""
+    try:
+        if file_path.endswith('.csv'):
+            df = pd.read_csv(file_path, parse_dates=["date"])
+        else:
+            st.error("Unsupported file format. Use CSV.")
+            return pd.DataFrame()
+    except FileNotFoundError:
+        st.error(f"❌ Forecast data file not found at: {file_path}")
+        return pd.DataFrame()
+    return df
+
+# ----------------------------
 # File Path
 # ----------------------------
 file_path = "data/gold_data/chicago_crimes_gold_reports.parquet"
+forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
 with st.spinner("Loading data..."):
     df = load_data(file_path)
+    forecast_df = load_forecast_data(forecast_file_path)
 df["end_date"] = pd.to_datetime(df["end_date"])
 df["start_date"] = pd.to_datetime(df["start_date"])
 df["report_date"] = pd.to_datetime(df["report_date"])
@@ -103,8 +122,8 @@ if not filtered_df.empty:
 # ----------------------------
 st.header("📌 Dashboard Views")
 
-tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison = st.tabs(
-    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "📈 Trends", "📉 Comparison"]
+tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison, tab_forecasts = st.tabs(
+    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "📈 Trends", "📉 Comparison", "📈 Forecasts"]
 )
 
 # --- Overview Tab ---
@@ -354,9 +373,58 @@ with tab_comparison:
             "Δ": "{:,.0f}",
             "% Change": "{:,.2f}%"
         }))
+with tab_forecasts:
+    st.subheader("📈 Monthly Crime Trends with Forecasts")
 
+    if not forecast_df.empty:
+        st.subheader("Crime Count Forecasts")
+
+        # Select the metric to visualize
+        metric_options = ["actual_crime_count"] + [
+            col for col in forecast_df.columns if col.startswith("predicted_crime_count_")
+        ]
+
+        # Replace negative values with NaN
+        forecast_df[metric_options[1:]] = forecast_df[metric_options[1:]].applymap(lambda x: x if x >= 0 else np.nan)
+
+        # Filter valid columns (exclude columns with all NaN values)
+        valid_columns = ["date", "actual_crime_count"] + [
+            col for col in metric_options[1:] if not forecast_df[col].isna().all()
+        ]
+        metric_data = forecast_df[valid_columns].copy()
+
+        # Ensure the date column is a datetime type
+        metric_data["date"] = pd.to_datetime(metric_data["date"])
+
+        if not metric_data.empty:
+            # Melt the data for easier plotting with Altair
+            metric_data = metric_data.melt(id_vars=["date"], var_name="Model", value_name="Crime Count")
+
+            # Calculate the y-axis maximum value (10x the max of actual_crime_count)
+            y_max = metric_data[metric_data["Model"] == "actual_crime_count"]["Crime Count"].max() * 1.3
+            if pd.isna(y_max) or y_max == 0:
+                y_max = 1  # Set a default value if y_max is invalid
+
+
+            # Create Altair chart
+            chart = alt.Chart(metric_data).mark_line(point=True).encode(
+                x=alt.X("date:T", title="Date"),
+                y=alt.Y(
+                    "Crime Count:Q",
+                    title="Crime Count"
+                    , scale=alt.Scale(domain=[-50, y_max], clamp=True)  # Set y-axis range
+                ),
+                color=alt.Color("Model:N", title="Model"),  # Dynamically assign colors to each model
+                tooltip=["date:T", "Model:N", "Crime Count:Q"]
+            ).properties(title="Actual and Forecasted Crime Counts")
+
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.warning("No data available after filtering. Check your data for values > 0.")
+    else:
+        st.warning("No forecast data available.")
+# ----------------------------
 DASHBOARD_VERSION = "v1.0.0"
-
 # Sidebar enhancements
 st.sidebar.markdown(f"**Dashboard Version:** `{DASHBOARD_VERSION}`")
 st.sidebar.markdown(f"**Streamlit version:** `{st.__version__}`")
