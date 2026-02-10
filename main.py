@@ -49,14 +49,14 @@ def load_forecast_data(file_path: str) -> pd.DataFrame:
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = "data/gold_data/chicago_crimes_gold_reports.parquet"
+file_path = "data/gold_data/chicago_crimes_gold_reports_.parquet"
 forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
 with st.spinner("Loading data..."):
     df = load_data(file_path)
     forecast_df = load_forecast_data(forecast_file_path)
-df["end_date"] = pd.to_datetime(df["end_date"])
-df["start_date"] = pd.to_datetime(df["start_date"])
-df["report_date"] = pd.to_datetime(df["report_date"])
+df["end_date"] = pd.to_datetime(df["report_end_date"])
+df["start_date"] = pd.to_datetime(df["report_start_date"])
+df["report_date"] = df["report_date"]
 
 if df.empty:
     st.stop()
@@ -68,6 +68,7 @@ if df.empty:
 CASE_METRICS = [c for c in df.columns if c.startswith("total_")]
 UNIQUE_METRICS = [c for c in df.columns if c.startswith("unique_")]
 CRIME_TYPE_METRICS = [c for c in df.columns if c.startswith("crime_") or c.startswith("fbi_")]
+CRIME_TYPE_METRICS += [c for c in df.columns if c.startswith("iucr_")]
 GEO_METRICS = [c for c in df.columns if c.startswith("community_area_") or c.startswith("ward_") or c.startswith("district_") or c.startswith("beat_")]
 
 # Comparison pairs using a prior prefix
@@ -182,23 +183,25 @@ with tab_crimes:
         # Dropdown to select metric type
         crime_metric_type = st.selectbox(
             "Select Crime Metric Type",
-            ("Crime Type", "FBI Code"),
+            ("Crime Type", "FBI Code", "IUCR"),
             key="crime_metric_type_select"
         )
 
         if crime_metric_type == "Crime Type":
             crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("crime_")]
-        else:
+        elif crime_metric_type == "FBI Code":
             crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("fbi_")]
+        elif crime_metric_type == "IUCR":
+            crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("iucr_")]
 
         crime_data = {col: snapshot[col] for col in crime_cols if col in snapshot}
-        crime_df = pd.DataFrame(list(crime_data.items()), columns=["Crime Type", "Count"])
+        crime_df = pd.DataFrame(list(crime_data.items()), columns=[crime_metric_type, "Count"])
         crime_df = crime_df.sort_values("Count", ascending=False)
         st.dataframe(crime_df)
         chart = alt.Chart(crime_df).mark_bar().encode(
             x=alt.X("Count:Q", sort="-y"),
-            y=alt.Y("Crime Type:N", sort="-x"),
-            tooltip=["Crime Type", "Count"]
+            y=alt.Y(f"{crime_metric_type}:N", sort="-x"),
+            tooltip=[crime_metric_type, "Count"]
         ).properties(width=600, height=400)
         st.altair_chart(chart, use_container_width=True)
     else:
