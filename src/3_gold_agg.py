@@ -1,6 +1,7 @@
 # Import necessary libraries
 import zipfile
 import os
+import sys
 import argparse
 import polars as pl
 import shutil
@@ -259,6 +260,8 @@ def main():
     zip_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.zip')])
     total_files = len(zip_files)
     print(f"Total files to process: {total_files}")
+    sys.stdout.flush()
+    sys.stderr.flush()
 
     # Use ProcessPoolExecutor for concurrent processing
     with ProcessPoolExecutor() as executor:
@@ -278,8 +281,11 @@ def main():
                     if i % 250 == 0:
                         elapsed = time.time() - global_start
                         print(f"Processed {i} of {total_files} files in {elapsed:.1f}s")
+                        sys.stdout.flush()
+                        sys.stderr.flush()
             except Exception as e:
                 print(f"Error processing file: {e}")
+                sys.stdout.flush()
 
     # Print a summary of the results
     processed_files = [res for res in results if res and "Processed" in res]
@@ -299,6 +305,8 @@ def main():
     time_elapsed_hours = (time_end - global_start) / 3600
     print(f'End Time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_end))}')
     print(f"Total processing time: {time_elapsed_hours:.2f} hours.")
+    sys.stdout.flush()
+    sys.stderr.flush()
 
     # Remove the temporary directory if empty
     if os.path.exists(temp_dir):
