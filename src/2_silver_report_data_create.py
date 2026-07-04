@@ -3,6 +3,7 @@
 # ========================
 from datetime import date, datetime, timedelta
 import os
+import argparse
 import zipfile
 from pathlib import Path
 import polars as pl
@@ -196,19 +197,40 @@ def calculate_elapsed_delta_time(idx, start_time, previous_time=None):
     # update previous_time
     previous_time = datetime.now() 
     return previous_time
-def create_report_periods_df(report_periods_df, data_folder, output_folder=None):
+def create_report_periods_df(report_periods_df, data_folder, output_folder=None, skip_existing=True):
     """Enumerate each report period and report type and generate report periods DataFrame."""
     start_time = datetime.now()
     previous_time = None
+    skipped_count = 0
+    
     for idx, row in enumerate(report_periods_df.iter_rows(named=True)):        
         if idx % 50 == 0:
             previous_time = calculate_elapsed_delta_time(idx, start_time, previous_time)
-            
 
         report_type = row["report_type"]
         report_date = row["report_date"]
         start_date = row["start_date"]
         end_date = row["end_date"]
+
+        # Create output file name early to check if it exists
+        start_date_str = start_date.strftime('%Y_%m')
+        end_date_str = end_date.strftime('%Y_%m')
+        file_name = f"silver_{report_type.replace(' ', '_').lower()}_{start_date_str}_{end_date_str}.zip"
+        
+        # determine output folder
+        if output_folder is None:
+            # create output folder if not exists
+            # parent of data_folder
+            parent_folder = os.path.dirname(data_folder)
+            output_folder = os.path.join(parent_folder, "silver_report_period_crime_data")
+            os.makedirs(output_folder, exist_ok=True)
+        
+        output_file = os.path.join(output_folder, file_name)
+        
+        # Skip if file exists and skip_existing is True
+        if skip_existing and os.path.exists(output_file):
+            skipped_count += 1
+            continue
 
         report_df = get_report_periods_data(
             data_folder=data_folder,
@@ -220,18 +242,6 @@ def create_report_periods_df(report_periods_df, data_folder, output_folder=None)
         if 'location' in report_df.columns:
             report_df = report_df.drop('location')
         
-        # create output file name
-        start_date = start_date.strftime('%Y_%m')
-        end_date = end_date.strftime('%Y_%m')
-        file_name = f"silver_{report_type.replace(' ', '_').lower()}_{start_date}_{end_date}.zip"
-        
-        # determine output folder
-        if output_folder is None:
-            # create output folder if not exists
-            # parent of data_folder
-            parent_folder = os.path.dirname(data_folder)
-            output_folder = os.path.join(parent_folder, "silver_report_period_crime_data")
-            os.makedirs(output_folder, exist_ok=True)
         if idx == 0:
             # save a sample of the report_df for inspection
             # sample file name
@@ -239,18 +249,40 @@ def create_report_periods_df(report_periods_df, data_folder, output_folder=None)
             sample_file_path = os.path.join(output_folder, sample_file_name)
             # save as csv
             report_df.write_csv(sample_file_path)
-        output_file = os.path.join(output_folder, file_name)
+        
         zip_parquet_file(report_df, output_file)
+    
+    if skip_existing:
+        print(f"\nSkipped {skipped_count} report files that already exist. Use --rerun to reprocess all files.")
 def main():
+    parser = argparse.ArgumentParser(
+        description="Create silver layer report period aggregations"
+    )
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Reprocess all report periods. By default, already processed files are skipped."
+    )
+    args = parser.parse_args()
+    
     # Define the base directory
     SCRIPT_DIR = Path(__file__).parent.absolute()
     BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
     
     # Define the data folder path
     data_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_crime_data")
+    
+    # Determine skip_existing based on --rerun flag
+    skip_existing = not args.rerun
+    
+    if args.rerun:
+        print("[WARNING] Running in RERUN mode - all report periods will be reprocessed")
+    else:
+        print("[INFO] Running in INCREMENTAL mode - existing report files will be skipped")
+    
     # Create report periods table
     report_periods_df = create_report_periods_table(data_folder)
     # create report dataframes for each report period and type
-    create_report_periods_df(report_periods_df, data_folder)
+    create_report_periods_df(report_periods_df, data_folder, skip_existing=skip_existing)
 if __name__ == "__main__":
     main()

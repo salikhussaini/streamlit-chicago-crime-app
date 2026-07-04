@@ -96,13 +96,14 @@ def import_module_from_path(module_name, module_path):
     return module
 
 
-def run_stage(stage, src_dir):
+def run_stage(stage, src_dir, stage_args=None):
     """
     Run a single pipeline stage.
     
     Args:
         stage: Dictionary containing stage information
         src_dir: Path to src directory
+        stage_args: List of command-line arguments to pass to the stage
     
     Returns:
         Tuple of (success: bool, execution_time: float)
@@ -114,6 +115,8 @@ def run_stage(stage, src_dir):
     logger.info(f"\n{'='*70}")
     logger.info(f"Starting: {stage_name}")
     logger.info(f"Description: {description}")
+    if stage_args:
+        logger.info(f"Arguments: {' '.join(stage_args)}")
     logger.info(f"{'='*70}")
     
     try:
@@ -133,7 +136,16 @@ def run_stage(stage, src_dir):
         # Execute main function if it exists
         if hasattr(module, 'main') and callable(module.main):
             logger.info(f"Executing main() from {module_name}")
-            module.main()
+            # Pass arguments by temporarily replacing sys.argv
+            if stage_args:
+                original_argv = sys.argv
+                try:
+                    sys.argv = [sys.argv[0]] + stage_args
+                    module.main()
+                finally:
+                    sys.argv = original_argv
+            else:
+                module.main()
         else:
             logger.warning(f"No main() function found in {module_name}")
         
@@ -174,13 +186,14 @@ def create_required_directories(base_dir):
             logger.info(f"Created directory: {full_path}")
 
 
-def run_pipeline(stages_to_run=None, skip_failed=False):
+def run_pipeline(stages_to_run=None, skip_failed=False, rerun_silver=False):
     """
     Run the complete pipeline.
     
     Args:
         stages_to_run: List of stage indices to run (0-based). If None, runs all.
         skip_failed: If True, continue pipeline even if a stage fails.
+        rerun_silver: If True, reprocess all silver data (pass --rerun flag to silver stages).
     
     Returns:
         Dictionary with execution results
@@ -198,6 +211,8 @@ def run_pipeline(stages_to_run=None, skip_failed=False):
     logger.info(f"Base Directory: {BASE_DIR}")
     logger.info(f"Source Directory: {src_dir}")
     logger.info(f"Timestamp: {datetime.now().isoformat()}")
+    if rerun_silver:
+        logger.info(f"Silver stages will be rerun (reprocessing all data)")
     
     # Determine which stages to run
     if stages_to_run is None:
@@ -219,7 +234,13 @@ def run_pipeline(stages_to_run=None, skip_failed=False):
             continue
         
         stage = PIPELINE_STAGES[stage_idx]
-        success, execution_time = run_stage(stage, src_dir)
+        
+        # Determine if this stage should get special arguments
+        stage_args = None
+        if rerun_silver and stage_idx in [3, 4]:  # Silver stages: 1_silver_data_enhance and 2_silver_report_data_create
+            stage_args = ["--rerun"]
+        
+        success, execution_time = run_stage(stage, src_dir, stage_args=stage_args)
         
         results["stages"][stage["name"]] = {
             "success": success,
@@ -275,6 +296,11 @@ def main():
         help="Continue pipeline execution even if a stage fails"
     )
     parser.add_argument(
+        "--rerun-silver",
+        action="store_true",
+        help="Reprocess all silver data (rerun stages 3-4). By default, existing silver files are skipped."
+    )
+    parser.add_argument(
         "--list-stages",
         action="store_true",
         help="List all available stages and exit"
@@ -296,7 +322,8 @@ def main():
     # Run pipeline
     results = run_pipeline(
         stages_to_run=args.stages,
-        skip_failed=args.skip_failed
+        skip_failed=args.skip_failed,
+        rerun_silver=args.rerun_silver
     )
     
     # Exit with appropriate code

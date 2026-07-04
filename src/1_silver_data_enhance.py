@@ -3,6 +3,7 @@
 # temporal, spatial, categorical and risk features for downstream analysis/visualization.
 
 import os
+import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 import holidays
@@ -626,17 +627,29 @@ def process_single_zip(zip_path: str, silver_dir: str, temp_dir: str = None, rez
             except Exception:
                 pass
 
-def create_silver_from_daily_zips(input_dir: str, silver_dir: str, temp_dir: str = None, rezip: bool = True):
+def create_silver_from_daily_zips(input_dir: str, silver_dir: str, temp_dir: str = None, rezip: bool = True, skip_existing: bool = True):
     """Process zip files in input_dir one zip (and one inner file) at a time by delegating to process_single_zip."""
     zip_paths = sorted(glob.glob(os.path.join(input_dir, "*.zip")))
     start_time = datetime.now()
+    skipped_count = 0
     for idx, zip_path in enumerate(zip_paths):
+        # Check if output already exists and skip if skip_existing is True
+        if skip_existing:
+            base_name = os.path.basename(zip_path).replace('.zip', '')
+            output_file = os.path.join(silver_dir, f"{base_name}.zip")
+            if os.path.exists(output_file):
+                skipped_count += 1
+                continue
+        
         #if idx == 1:
         #    break  # for testing, process only first zip
         if idx % 1000 == 0:
             elapsed = datetime.now() - start_time
-            print(f"Processed {idx} of {len(zip_paths)} zips in {elapsed}")
+            print(f"Processed {idx} of {len(zip_paths)} zips in {elapsed} | Skipped: {skipped_count}")
         process_single_zip(zip_path, silver_dir, temp_dir=temp_dir, rezip=rezip)
+    
+    if skip_existing:
+        print(f"\nSkipped {skipped_count} files that already exist. Use --rerun to reprocess all files.")
     # cleanup temp_dir if used
     if temp_dir is None:
         tmp = os.path.join(silver_dir, "_tmp_extract")
@@ -652,6 +665,16 @@ def create_silver_from_daily_zips(input_dir: str, silver_dir: str, temp_dir: str
 # MAIN ETL PROCESS
 # =========================
 def main():
+    parser = argparse.ArgumentParser(
+        description="Transform raw crime data into enriched silver layer"
+    )
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Reprocess all files. By default, already processed files are skipped."
+    )
+    args = parser.parse_args()
+    
     # Define the base directory
     SCRIPT_DIR = Path(__file__).parent.absolute()
     BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
@@ -659,8 +682,17 @@ def main():
     # Define input and output directories
     bronze_data_folder = os.path.join(BASE_DIR, "data", "raw_data", "api_crime_data")
     silver_data_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_crime_data")
+    
+    # Determine skip_existing based on --rerun flag
+    skip_existing = not args.rerun
+    
+    if args.rerun:
+        print("[WARNING] Running in RERUN mode - all files will be reprocessed")
+    else:
+        print("[INFO] Running in INCREMENTAL mode - existing files will be skipped")
+    
     # Create silver data from bronze daily zip files
-    create_silver_from_daily_zips(bronze_data_folder, silver_data_folder, rezip=True)
+    create_silver_from_daily_zips(bronze_data_folder, silver_data_folder, rezip=True, skip_existing=skip_existing)
 
 if __name__ == "__main__":
     main()

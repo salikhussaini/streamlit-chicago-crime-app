@@ -51,6 +51,76 @@ The raw data used in this project is sourced from the **Chicago Police Departmen
 
 ---
 
+## ETL Pipeline
+
+### Running the Complete Pipeline
+
+The ETL pipeline consists of 7 stages that process Chicago crime data from raw API data through to dashboard aggregations:
+
+**Run entire pipeline (incremental mode - skips existing files):**
+```bash
+python src/orchestrate_pipeline.py
+```
+
+**Run entire pipeline with full reprocessing:**
+```bash
+python src/orchestrate_pipeline.py --rerun-silver
+```
+
+**Run specific stages only:**
+```bash
+# Run only gold aggregation stages (use cached silver data)
+python src/orchestrate_pipeline.py --stages 5 6
+
+# Run bronze through gold stages, skip dashboard stage
+python src/orchestrate_pipeline.py --stages 0 1 2 3 4 5
+
+# Run with reprocessing of silver data
+python src/orchestrate_pipeline.py --stages 3 4 5 6 --rerun-silver
+```
+
+### Individual Stage Execution
+
+**Silver Data Enhancement (individual script):**
+```bash
+# Incremental mode (skip existing files)
+python src/1_silver_data_enhance.py
+
+# Reprocess all files
+python src/1_silver_data_enhance.py --rerun
+```
+
+**Silver Report Data Creation (individual script):**
+```bash
+# Incremental mode (skip existing report periods)
+python src/2_silver_report_data_create.py
+
+# Reprocess all report periods
+python src/2_silver_report_data_create.py --rerun
+```
+
+### Pipeline Stages
+
+| Index | Stage | Module | Description |
+|-------|-------|--------|-------------|
+| 0 | Metadata Tracker (Initial) | `00_metadata_tracker` | Check baseline metadata and status tracking |
+| 1 | Bronze API Data Pull | `0_bronze_api_data_pull` | Fetch raw crime data from Chicago Police API |
+| 2 | Metadata Tracker (Verify) | `00_metadata_tracker` | Verify and update metadata after bronze pull |
+| 3 | Silver Data Enhancement | `1_silver_data_enhance` | Clean and enrich raw data with 50+ features |
+| 4 | Silver Report Data Creation | `2_silver_report_data_create` | Create R12 and YTD report period aggregations |
+| 5 | Gold Aggregation | `3_gold_agg` | Aggregate to gold layer using ProcessPoolExecutor |
+| 6 | Gold Dashboard Aggregation | `4_gold_dash_agg` | Final dashboard-layer aggregations |
+
+### Performance Notes
+
+- **Incremental Mode (Default)**: Recommended for routine runs. Skips already-processed files, significantly reducing execution time.
+  - Typical execution: ~30 seconds per 1,000 files
+  - Full pipeline on first run: ~4-5 minutes for 9,307 files
+  
+- **Rerun Mode** (`--rerun` or `--rerun-silver`): Use when you need to reprocess all data or apply code changes to existing files.
+
+---
+
 ## Directory Structure
 ```
 .
