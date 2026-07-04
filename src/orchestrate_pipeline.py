@@ -146,6 +146,9 @@ def run_stage(stage, src_dir, stage_args=None):
                     sys.argv = original_argv
             else:
                 module.main()
+            # Flush stdout to ensure all print statements are displayed
+            sys.stdout.flush()
+            sys.stderr.flush()
         else:
             logger.warning(f"No main() function found in {module_name}")
         
