@@ -214,8 +214,12 @@ def add_features(df: pl.DataFrame) -> pl.DataFrame:
         # , 'community_area', 'fbi_code', 'year', 'updated_on', 'x_coordinate', 'y_coordinate'
         # , 'latitude', 'longitude', 'location', '__index_level_0__']
     
-    # Defensive: Check required columns
-    required_orginal = ['latitude', 'longitude', 'beat', 'district', 'ward',
+    # Add empty 'ward' column if missing (older API data doesn't have it)
+    if 'ward' not in df.columns:
+        df = df.with_columns(pl.lit(None, dtype=pl.Utf8).alias('ward'))
+    
+    # Defensive: Check required columns (ward is optional, already handled above)
+    required_orginal = ['latitude', 'longitude', 'beat', 'district',
                         'community_area', 'primary_type', 'fbi_code', 'id', 'date']
     lower_required = [col.lower() for col in required_orginal]
     missing = [col for col in lower_required if col not in df.columns]
@@ -503,7 +507,6 @@ def ensure_columns(df: pl.DataFrame) -> pl.DataFrame:
 
     exprs = []
     for col in missing:
-        print(f"Adding missing column: {col}")
         if col == 'year':
             # use existing date column if present
             if 'date' in df.columns:

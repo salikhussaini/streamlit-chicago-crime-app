@@ -166,7 +166,6 @@ def main():
     silver_report_dates = get_report_pulled_dates(silver_report_folder, "silver_")
     gold_report_dates = get_report_pulled_dates(gold_report_folder, "gold_")
 
-    print(silver_report_dates.head())
     # Create data status DataFrame
     data_status = create_data_status_df(all_dates, api_dates, silver_dates)
 

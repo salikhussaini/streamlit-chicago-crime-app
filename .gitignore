@@ -16,3 +16,4 @@ data/transformed_data/
 .vscode/
 # Execution Logs
 pipeline_execution.log
+pipeline_*.log
