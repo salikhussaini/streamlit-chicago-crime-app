@@ -34,15 +34,16 @@ def get_crime_data_by_day(date):
     try:
         # Make a GET request to the API
         response = requests.get(API_URL, params=params)
-        # Raise an error for HTTP issues
-        response.raise_for_status()
-
+        
         # Handle rate limiting by retrying after a delay
         if response.status_code == 429:
             print("Rate limit exceeded. Retrying after a delay...")
             time.sleep(60)  # Wait for 60 seconds before retrying
-        else:
-            df = pd.DataFrame(response.json())
+            response = requests.get(API_URL, params=params)  # Retry request
+        
+        # Raise an error for HTTP issues
+        response.raise_for_status()
+        df = pd.DataFrame(response.json())
     except Exception as e:
         print(f"Error fetching data for date {date}: {e}")
         df = pd.DataFrame()

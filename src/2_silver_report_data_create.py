@@ -3,10 +3,9 @@
 # ========================
 from datetime import date, datetime, timedelta
 import os
+import zipfile
 from pathlib import Path
 import polars as pl
-import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # =========================
 # REPORT PERIODS GENERATION (Polars version)

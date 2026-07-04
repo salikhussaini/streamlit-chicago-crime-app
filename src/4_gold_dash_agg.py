@@ -113,16 +113,19 @@ if __name__ == "__main__":
         temp_dir = extract_zip_files_to_temp(input_dir)
 
         # Combine all Parquet files from the temporary directory incrementally into a single Parquet file
-        combine_parquet_files_incremental(temp_dir, os.path.join(output_dir, 'combined_data.parquet'))
+        combine_parquet_files_incremental(temp_dir, 'combined_data.parquet')
 
-        df = create_prior_df(output_dir, os.path.join(output_dir, 'combined_data.parquet'))
+        df = create_prior_df(output_dir, 'combined_data.parquet')
 
-        # export 
-        file_name = 'chicago_crimes_gold_reports_.parquet'
-        output_file_path = os.path.join(output_dir, file_name)
-        dashboard_file_path = os.path.join(dashboard_output_dir, file_name)
-        df.to_parquet(output_file_path, index=False)
-        shutil.copy(output_file_path, dashboard_file_path)
+        # export only if df is not None
+        if df is not None:
+            file_name = 'chicago_crimes_gold_reports_.parquet'
+            output_file_path = os.path.join(output_dir, file_name)
+            dashboard_file_path = os.path.join(dashboard_output_dir, file_name)
+            df.to_parquet(output_file_path, index=False)
+            shutil.copy(output_file_path, dashboard_file_path)
+        else:
+            print("Error: create_prior_df returned None, skipping export")
     finally:
         # Ensure temporary files are cleaned up even if the script is interrupted
         if temp_dir:

@@ -56,9 +56,6 @@ def parse_report_dates(file, prefix):
                 report_end = datetime.strptime("_".join(split_dates[3:5]), "%Y_%m").strftime("%Y-%m-%d")
             else:
                 return None
-            # Convert report_start and report_end to string format
-            report_start = datetime.strptime(report_start, "%Y-%m-%d")
-            report_end = datetime.strptime(report_end, "%Y-%m-%d")
             return report_type, report_start, report_end
     except Exception as e:
         print(f"Error parsing file {file}: {e}")

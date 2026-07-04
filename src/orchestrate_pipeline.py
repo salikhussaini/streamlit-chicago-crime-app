@@ -15,6 +15,8 @@ import os
 import sys
 import time
 import logging
+import importlib.util
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -87,7 +89,6 @@ def import_module_from_path(module_name, module_path):
     Returns:
         The imported module
     """
-    import importlib.util
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
@@ -259,8 +260,6 @@ def run_pipeline(stages_to_run=None, skip_failed=False):
 
 def main():
     """Main entry point for the orchestrator."""
-    import argparse
-    
     parser = argparse.ArgumentParser(
         description="Orchestrate the Chicago Crime Data Pipeline"
     )
