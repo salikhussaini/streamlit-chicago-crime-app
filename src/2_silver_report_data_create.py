@@ -70,12 +70,12 @@ def get_min_max_dates(folder):
   
                 try:
                     # parse date
-                    date = datetime.strptime(date_str, "%Y-%m-%d") 
+                    parsed_date = datetime.strptime(date_str, "%Y-%m-%d") 
                     # update min_date
-                    if min_date is None or date < min_date:
-                        min_date = date
-                    if max_date is None or date > max_date:
-                        max_date = date
+                    if min_date is None or parsed_date < min_date:
+                        min_date = parsed_date
+                    if max_date is None or parsed_date > max_date:
+                        max_date = parsed_date
                 except ValueError:
                     continue
     return min_date, max_date
@@ -152,7 +152,7 @@ def get_report_periods_data(data_folder, report_start_date, report_end_date, rep
             try:
                 report_df = pl.concat([report_df, df])
             except Exception as e:
-                print(f"Error concatenating {os.path.basename(file)}: \n{e}")
+                raise ValueError(f"Error concatenating {os.path.basename(file)}: {e}") from e
     # create report_type, report_start_date, report_end_date columns
     report_start_date = report_start_date.strftime('%Y_%m')
     report_end_date = report_end_date.strftime('%Y_%m')
@@ -229,7 +229,7 @@ def create_report_periods_df(report_periods_df, data_folder, output_folder=None)
             parent_folder = os.path.dirname(data_folder)
             output_folder = os.path.join(parent_folder, "silver_report_period_crime_data")
             os.makedirs(output_folder, exist_ok=True)
-        if idx == 5:
+        if idx == 0:
             # save a sample of the report_df for inspection
             # sample file name
             sample_file_name = f"{report_type.replace(' ', '_').lower()}_sample_report_df.csv"

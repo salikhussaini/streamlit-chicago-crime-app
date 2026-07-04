@@ -79,7 +79,7 @@ def clean_raw_fields(df: pl.DataFrame) -> pl.DataFrame:
         if 'ward_raw' not in df.columns:
             exprs.append(pl.col('ward').alias('ward_raw'))
         # extract digits as text first, then try cast to Int32 (nulls preserved)
-        ca_clean = (
+        ward_clean = (
             pl.col('ward')
             .cast(pl.Utf8, strict=False)
             .str.extract(r'(\d+)', 1)
@@ -88,7 +88,7 @@ def clean_raw_fields(df: pl.DataFrame) -> pl.DataFrame:
             .str.zfill(3)
             )
         
-        exprs.append(ca_clean.alias('ward'))  # replace/ensure numeric ward where possible
+        exprs.append(ward_clean.alias('ward'))  # replace/ensure numeric ward where possible
     # Primary Type: preserve raw then cleaned (canonical lowercase with underscores)
     if 'primary_type' in df.columns:
         if 'primary_type_raw' not in df.columns:
@@ -186,7 +186,7 @@ def clean_raw_fields(df: pl.DataFrame) -> pl.DataFrame:
             .cast(pl.Utf8, strict=False)
             .str.strip_chars()
             .str.replace_all(r"\bAPT\b", "APARTMENT")
-            .str.replace_all(r"\\RESIDENCE\\b", "HOME")  # Fixed regex
+            .str.replace_all(r"\bRESIDENCE\b", "HOME")
             .str.to_lowercase()  # Or .str.to_titlecase() for title case
         )
         exprs.append(location_clean.alias('location_description'))
@@ -270,11 +270,11 @@ def add_features(df: pl.DataFrame) -> pl.DataFrame:
     # normalize boolean-like columns
     if 'arrest' in df.columns:
         df = df.with_columns([
-            pl.when(pl.col('arrest').str.to_lowercase().is_in(['true','t','1','yes','y'])).then(True).otherwise(False).alias('arrest')
+            pl.when(pl.col('arrest').cast(pl.Utf8, strict=False).str.to_lowercase().is_in(['true','t','1','yes','y'])).then(True).otherwise(False).alias('arrest')
         ])
     if 'domestic' in df.columns:
         df = df.with_columns([
-            pl.when(pl.col('domestic').str.to_lowercase().is_in(['true','t','1','yes','y'])).then(True).otherwise(False).alias('domestic')
+            pl.when(pl.col('domestic').cast(pl.Utf8, strict=False).str.to_lowercase().is_in(['true','t','1','yes','y'])).then(True).otherwise(False).alias('domestic')
         ])
 
     # normalize categorical columns to canonical form
