@@ -72,6 +72,9 @@ def get_report_pulled_dates(folder_path, prefix):
                 pulled_dates.add(report_data)
     # create DataFrame from pulled_dates
     pulled_dates_df = pd.DataFrame(list(pulled_dates), columns=["report_type", "start_date", "end_date"])
+    # Convert start_date and end_date to datetime to match report_periods format
+    pulled_dates_df["start_date"] = pd.to_datetime(pulled_dates_df["start_date"])
+    pulled_dates_df["end_date"] = pd.to_datetime(pulled_dates_df["end_date"])
     return pulled_dates_df
 
 # Function to generate report periods
