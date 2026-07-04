@@ -121,6 +121,9 @@ def unzip_read_parquet(file_path):
         zip_ref.extractall(os.path.dirname(file_path))
     # get the extracted parquet file path
     parquet_file_path = file_path.replace('.zip', '.parquet')
+    # validate that the extracted file exists before reading
+    if not os.path.exists(parquet_file_path):
+        raise FileNotFoundError(f"Expected parquet file not found after extraction: {parquet_file_path}")
     # read the parquet file into a Polars DataFrame
     df = pl.read_parquet(parquet_file_path)
     # delete the extracted parquet file

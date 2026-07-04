@@ -90,19 +90,21 @@ def create_prior_df(output_dir, combined_file_name='combined_data.parquet'):
     # Convert report_end_date to datetime and subtract by 12 months
     df['prior_end_date'] = df['report_end_date'] - pd.DateOffset(months=12)
     
-    # prefix columns in df_prior with 'prior_' except for report_end_date and report_type
-    df_prior = df_prior.rename(columns={col: f'prior_{col}' for col in df_prior.columns})
+    # prefix columns in df_prior with 'prior_' except for report_end_date and report_type (join keys)
+    cols_to_rename = {col: f'prior_{col}' for col in df_prior.columns if col not in ['report_end_date', 'report_type']}
+    df_prior = df_prior.rename(columns=cols_to_rename)
 
     df = df.merge(
         df_prior,
         left_on=['prior_end_date', 'report_type'],
-        right_on=['prior_report_end_date', 'prior_report_type'],
-        how='left'
+        right_on=['report_end_date', 'report_type'],
+        how='left',
+        suffixes=('', '_prior')
     )
 
-    # remove 
-
-    # export df to csv
+    # Drop the redundant 'report_end_date_prior' column created by the merge
+    if 'report_end_date_prior' in df.columns:
+        df = df.drop(columns=['report_end_date_prior'])
     return df
 
 # Updated main script execution

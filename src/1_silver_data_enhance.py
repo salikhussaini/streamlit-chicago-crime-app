@@ -517,13 +517,15 @@ def ensure_columns(df: pl.DataFrame) -> pl.DataFrame:
             # derive x/y if lat/lon present, otherwise null
             if 'latitude' in df.columns and 'longitude' in df.columns:
                 idx = 0 if col == 'x_coordinate' else 1
-                # still uses python function per row (keeps existing behavior)
+                # Create a closure to properly capture idx value
+                def make_transform(index):
+                    def transform(coords):
+                        return lat_lon_to_xy(coords['latitude'], coords['longitude'])[index]
+                    return transform
                 exprs.append(
                     pl.when(pl.col('latitude').is_not_null() & pl.col('longitude').is_not_null())
                       .then(
-                          pl.struct(['latitude', 'longitude']).apply(
-                              lambda coords, _idx=idx: lat_lon_to_xy(coords['latitude'], coords['longitude'])[_idx]
-                          )
+                          pl.struct(['latitude', 'longitude']).apply(make_transform(idx))
                       )
                       .otherwise(None)
                       .alias(col)
