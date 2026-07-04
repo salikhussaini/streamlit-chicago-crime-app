@@ -1,2 +1,15 @@
 python: can't open file '/mnt/external/streamlit-chicago-crime-app/orchestrate_pipeline.py': [Errno 2] No such file or directory
 python: can't open file '/mnt/external/streamlit-chicago-crime-app/orchestrate_pipeline.py': [Errno 2] No such file or directory
+[INFO] Running in INCREMENTAL mode - existing files will be skipped
+Start Time: 2026-07-04 17:51:07
+Total files to process: 588
+Processed 250 of 588 files in 109.1s
+Processed 500 of 588 files in 261.3s
+
+Summary:
+Total files processed: 410
+Total files skipped: 178
+Total files empty: 0
+Skipped 178 files that already exist. Use --rerun to reprocess all files.
+End Time: 2026-07-04 17:56:06
+Total processing time: 0.08 hours.
