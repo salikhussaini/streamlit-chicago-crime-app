@@ -193,7 +193,7 @@ def run_pipeline(stages_to_run=None, skip_failed=False, rerun_silver=False):
     Args:
         stages_to_run: List of stage indices to run (0-based). If None, runs all.
         skip_failed: If True, continue pipeline even if a stage fails.
-        rerun_silver: If True, reprocess all silver data (pass --rerun flag to silver stages).
+        rerun_silver: If True, reprocess all silver and gold data (pass --rerun flag to stages 3-6).
     
     Returns:
         Dictionary with execution results
@@ -237,7 +237,7 @@ def run_pipeline(stages_to_run=None, skip_failed=False, rerun_silver=False):
         
         # Determine if this stage should get special arguments
         stage_args = None
-        if rerun_silver and stage_idx in [3, 4]:  # Silver stages: 1_silver_data_enhance and 2_silver_report_data_create
+        if rerun_silver and stage_idx in [3, 4, 5, 6]:  # Silver stages (3-4), gold aggregation (5), and gold dashboard (6) support --rerun
             stage_args = ["--rerun"]
         
         success, execution_time = run_stage(stage, src_dir, stage_args=stage_args)
@@ -298,7 +298,7 @@ def main():
     parser.add_argument(
         "--rerun-silver",
         action="store_true",
-        help="Reprocess all silver data (rerun stages 3-4). By default, existing silver files are skipped."
+        help="Reprocess all silver and gold data (rerun stages 3-6). By default, existing files are skipped."
     )
     parser.add_argument(
         "--list-stages",

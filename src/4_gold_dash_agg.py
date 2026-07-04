@@ -1,4 +1,5 @@
 import os
+import argparse
 import zipfile
 import pandas as pd
 import shutil
@@ -108,7 +109,33 @@ def create_prior_df(output_dir, combined_file_name='combined_data.parquet'):
     return df
 
 # Updated main script execution
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create final dashboard aggregations from gold data"
+    )
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Reprocess all files. By default, already processed files are skipped."
+    )
+    args = parser.parse_args()
+    
+    # Determine skip_existing based on --rerun flag
+    skip_existing = not args.rerun
+    
+    if args.rerun:
+        print("[WARNING] Running in RERUN mode - all files will be reprocessed")
+    else:
+        print("[INFO] Running in INCREMENTAL mode - existing files will be skipped")
+    
+    # Check if output files already exist and skip if skip_existing is True
+    combined_file_path = os.path.join(output_dir, 'combined_data.parquet')
+    dashboard_file_path = os.path.join(dashboard_output_dir, 'chicago_crimes_gold_reports_.parquet')
+    
+    if skip_existing and os.path.exists(combined_file_path) and os.path.exists(dashboard_file_path):
+        print(f"Skipped: Output files already exist. Use --rerun to reprocess all files.")
+        return
+    
     temp_dir = None
     try:
         # Extract ZIP files to a temporary directory
@@ -132,3 +159,7 @@ if __name__ == "__main__":
         # Ensure temporary files are cleaned up even if the script is interrupted
         if temp_dir:
             clean_up_temp_dir(temp_dir)
+
+
+if __name__ == "__main__":
+    main()

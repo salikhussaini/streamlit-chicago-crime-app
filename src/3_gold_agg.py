@@ -1,6 +1,7 @@
 # Import necessary libraries
 import zipfile
 import os
+import argparse
 import polars as pl
 import shutil
 import time
@@ -185,16 +186,47 @@ def save_aggregated_df(df, output_dir, file_name):
     os.remove(output_file_path)
 
 
+def get_output_zip_name(input_file_name):
+    """
+    Generate the output zip filename from input filename.
+    """
+    file_name = os.path.basename(input_file_name).replace('.zip', '').replace('.parquet', '')
+    file_name_parts = file_name.split("_")
+    report_type = file_name_parts[1]
+    report_start = "".join(file_name_parts[2:4])
+    report_end = "".join(file_name_parts[4:6])
+    file_name = f"{report_type}_{report_start}_{report_end}.parquet"
+    zip_name = f'gold_{file_name.replace(".parquet", ".zip")}'
+    return zip_name
+
 # Move the process_zip function to the global scope
-def process_zip(zip_file, folder_path, temp_dir, output_dir, file_count):
+def process_zip(zip_file, folder_path, temp_dir, output_dir, file_count, skip_existing=True):
     zip_file_path = os.path.join(folder_path, zip_file)
+    
+    # Check if output file already exists and skip if skip_existing is True
+    if skip_existing:
+        output_zip_name = get_output_zip_name(zip_file)
+        output_zip_path = os.path.join(output_dir, output_zip_name)
+        if os.path.exists(output_zip_path):
+            return f'Skipped {zip_file}'
+    
     df = process_zip_file(zip_file_path, temp_dir)
     if df is not None and df.shape[0] > 0:
         save_aggregated_df(df, output_dir, file_name=zip_file)
         return f'Processed {zip_file}'
-    return f"Skipped {zip_file}"
+    return f"Empty {zip_file}"
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Aggregate silver report data to gold layer"
+    )
+    parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Reprocess all files. By default, already processed files are skipped."
+    )
+    args = parser.parse_args()
+    
     # Define the base directory
     SCRIPT_DIR = Path(__file__).parent.absolute()
     BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
@@ -205,6 +237,14 @@ def main():
     temp_dir = os.path.join(BASE_DIR, "data", "temp")
     # Output folder
     output_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data")
+
+    # Determine skip_existing based on --rerun flag
+    skip_existing = not args.rerun
+    
+    if args.rerun:
+        print("[WARNING] Running in RERUN mode - all files will be reprocessed")
+    else:
+        print("[INFO] Running in INCREMENTAL mode - existing files will be skipped")
 
     # Create temp directory if it doesn't exist
     os.makedirs(temp_dir, exist_ok=True)
@@ -218,7 +258,7 @@ def main():
     # Use ProcessPoolExecutor for concurrent processing
     with ProcessPoolExecutor() as executor:
         futures = [
-            executor.submit(process_zip, zip_file, folder_path, temp_dir, output_dir, file_count)
+            executor.submit(process_zip, zip_file, folder_path, temp_dir, output_dir, file_count, skip_existing)
             for zip_file in sorted(os.listdir(folder_path)) if zip_file.endswith('.zip')
         ]
         # collect results
@@ -235,11 +275,15 @@ def main():
     # Print a summary of the results
     processed_files = [res for res in results if res and "Processed" in res]
     skipped_files = [res for res in results if res and "Skipped" in res]
+    empty_files = [res for res in results if res and "Empty" in res]
 
     print(f"\nSummary:")
     print(f"Total files processed: {len(processed_files)}")
     print(f"Total files skipped: {len(skipped_files)}")
-    print(f"Skipped files: {skipped_files}")
+    print(f"Total files empty: {len(empty_files)}")
+    
+    if skip_existing:
+        print(f"Skipped {len(skipped_files)} files that already exist. Use --rerun to reprocess all files.")
 
     # Calculate total processing time
     time_end = time.time()
