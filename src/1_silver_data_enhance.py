@@ -635,11 +635,18 @@ def create_silver_from_daily_zips(input_dir: str, silver_dir: str, temp_dir: str
     for idx, zip_path in enumerate(zip_paths):
         # Check if output already exists and skip if skip_existing is True
         if skip_existing:
-            base_name = os.path.basename(zip_path).replace('.zip', '')
-            output_file = os.path.join(silver_dir, f"{base_name}.zip")
-            if os.path.exists(output_file):
-                skipped_count += 1
-                continue
+            # Extract date from zip filename (e.g., "api_2001-01-01.zip" -> "2001-01-01")
+            # Output will be named "silver_2001-01-01.zip"
+            try:
+                zip_basename = os.path.basename(zip_path)
+                date_str = zip_basename.split('_')[-1].replace('.zip', '')
+                output_file = os.path.join(silver_dir, f"silver_{date_str}.zip")
+                if os.path.exists(output_file):
+                    skipped_count += 1
+                    continue
+            except (IndexError, ValueError):
+                # If date extraction fails, proceed with processing
+                pass
         
         #if idx == 1:
         #    break  # for testing, process only first zip
