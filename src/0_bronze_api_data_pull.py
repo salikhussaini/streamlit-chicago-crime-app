@@ -5,13 +5,18 @@ import pandas as pd
 import zipfile
 import os
 import time
+from pathlib import Path
 
 # Define the base directory for the project
-BASE_DIR = os.getenv("BASE_DIR", r"c:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app")
+SCRIPT_DIR = Path(__file__).parent.absolute()
+BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
+
 
 # Define the path to store raw API crime data
 os_path = os.path.join(BASE_DIR, "data", "raw_data", "api_crime_data")
-
+# create the directory for storing raw API crime data if it doesn't exist
+if not os.path.exists(os_path):
+    os.makedirs(os_path)
 # Define the path to the raw data status CSV file
 raw_data_status_path = os.path.join(BASE_DIR, "data", "raw_data", "raw_data_status.csv")
 

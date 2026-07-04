@@ -5,6 +5,7 @@ import polars as pl
 import shutil
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
 
 def melt_and_pivot(df, value_var):
     # lowercase the value_var column
@@ -194,12 +195,16 @@ def process_zip(zip_file, folder_path, temp_dir, output_dir, file_count):
     return f"Skipped {zip_file}"
 
 def main():
+    # Define the base directory
+    SCRIPT_DIR = Path(__file__).parent.absolute()
+    BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
+    
     # Report period zip folder
-    folder_path = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\silver_report_period_crime_data'
+    folder_path = os.path.join(BASE_DIR, "data", "raw_data", "silver_report_period_crime_data")
     # Temp directory for extracting zip files
-    temp_dir = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\temp'
+    temp_dir = os.path.join(BASE_DIR, "data", "temp")
     # Output folder
-    output_dir = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\gold_data'
+    output_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data")
 
     # Create temp directory if it doesn't exist
     os.makedirs(temp_dir, exist_ok=True)

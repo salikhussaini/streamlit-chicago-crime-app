@@ -3,12 +3,17 @@ import zipfile
 import pandas as pd
 import shutil
 import tempfile
+from pathlib import Path
+
+# Define the base directory
+SCRIPT_DIR = Path(__file__).parent.absolute()
+BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
 
 # Input folder containing ZIP files
-input_dir = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\gold_data'
+input_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data")
 # output folder for extracted files and combined Parquet file
-output_dir = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\gold_data_dash'
-dashboard_output_dir = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\gold_data'
+output_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data_dash")
+dashboard_output_dir = os.path.join(BASE_DIR, "data", "gold_data")
 
 # Ensure the output directory exists
 os.makedirs(output_dir, exist_ok=True)

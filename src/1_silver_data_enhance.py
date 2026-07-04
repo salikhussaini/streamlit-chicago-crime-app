@@ -4,6 +4,7 @@
 
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 import holidays
 import polars as pl
 import zipfile
@@ -646,9 +647,13 @@ def create_silver_from_daily_zips(input_dir: str, silver_dir: str, temp_dir: str
 # MAIN ETL PROCESS
 # =========================
 def main():
+    # Define the base directory
+    SCRIPT_DIR = Path(__file__).parent.absolute()
+    BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
+    
     # Define input and output directories
-    bronze_data_folder = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\api_crime_data'
-    silver_data_folder = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\silver_crime_data'
+    bronze_data_folder = os.path.join(BASE_DIR, "data", "raw_data", "api_crime_data")
+    silver_data_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_crime_data")
     # Create silver data from bronze daily zip files
     create_silver_from_daily_zips(bronze_data_folder, silver_data_folder, rezip=True)
 

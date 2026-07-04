@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Utility function to parse dates from filenames
 def parse_date_from_filename(file, prefix):
@@ -142,11 +143,15 @@ def create_report_date_status_df(all_report_dates, silver_report_dates, gold_rep
 
 # Main function to orchestrate the workflow
 def main():
+    # Define the base directory
+    SCRIPT_DIR = Path(__file__).parent.absolute()
+    BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
+    
     # Define the folder paths
-    api_folder = r"c:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\api_crime_data"
-    silver_folder = r"c:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\silver_crime_data"
-    silver_report_folder = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\silver_report_period_crime_data'
-    gold_report_folder = r'C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\gold_data'
+    api_folder = os.path.join(BASE_DIR, "data", "raw_data", "api_crime_data")
+    silver_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_crime_data")
+    silver_report_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_report_period_crime_data")
+    gold_report_folder = os.path.join(BASE_DIR, "data", "raw_data", "gold_data")
 
     # Define the start and end dates
     start_date = datetime(2001, 1, 1)
@@ -169,11 +174,11 @@ def main():
     data_status = create_data_status_df(all_dates, api_dates, silver_dates)
 
     # Save the DataFrame to a CSV file
-    output_csv_path = r"c:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\raw_data_status.csv"
+    output_csv_path = os.path.join(BASE_DIR, "data", "raw_data", "raw_data_status.csv")
     data_status.to_csv(output_csv_path, index=False)
 
     report_date_status = create_report_date_status_df(report_periods, silver_report_dates, gold_report_dates)
-    output_report_csv_path = r"c:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\report_date_status.csv"
+    output_report_csv_path = os.path.join(BASE_DIR, "data", "raw_data", "report_date_status.csv")
     report_date_status.to_csv(output_report_csv_path, index=False)
 
 # Entry point

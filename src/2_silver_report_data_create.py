@@ -2,6 +2,8 @@
 # IMPORTS
 # ========================
 from datetime import date, datetime, timedelta
+import os
+from pathlib import Path
 import polars as pl
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -238,8 +240,12 @@ def create_report_periods_df(report_periods_df, data_folder, output_folder=None)
         output_file = os.path.join(output_folder, file_name)
         zip_parquet_file(report_df, output_file)
 def main():
+    # Define the base directory
+    SCRIPT_DIR = Path(__file__).parent.absolute()
+    BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
+    
     # Define the data folder path
-    data_folder = r"C:\Users\salik\Documents\PROJECTS\20260131_chicago_crimes\streamlit-chicago-crime-app\data\raw_data\silver_crime_data"
+    data_folder = os.path.join(BASE_DIR, "data", "raw_data", "silver_crime_data")
     # Create report periods table
     report_periods_df = create_report_periods_table(data_folder)
     # create report dataframes for each report period and type
