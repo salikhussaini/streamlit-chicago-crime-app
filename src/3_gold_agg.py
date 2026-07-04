@@ -255,22 +255,31 @@ def main():
     time_start = time.time()
     print(f'Start Time: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time_start))}')
 
+    # Get list of zip files to process
+    zip_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.zip')])
+    total_files = len(zip_files)
+    print(f"Total files to process: {total_files}")
+
     # Use ProcessPoolExecutor for concurrent processing
     with ProcessPoolExecutor() as executor:
         futures = [
             executor.submit(process_zip, zip_file, folder_path, temp_dir, output_dir, file_count, skip_existing)
-            for zip_file in sorted(os.listdir(folder_path)) if zip_file.endswith('.zip')
+            for zip_file in zip_files
         ]
-        # collect results
+        # collect results with progress reporting
         results = []
-        for future in as_completed(futures):
+        for i, future in enumerate(as_completed(futures), 1):
             file_count += 1
             try:
                 result = future.result()
                 if result is not None:
                     results.append(result)
+                    # Print progress every 250 files
+                    if i % 250 == 0:
+                        elapsed = time.time() - global_start
+                        print(f"Processed {i} of {total_files} files in {elapsed:.1f}s")
             except Exception as e:
-                pass
+                print(f"Error processing file: {e}")
 
     # Print a summary of the results
     processed_files = [res for res in results if res and "Processed" in res]
