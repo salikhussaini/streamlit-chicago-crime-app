@@ -3,7 +3,6 @@ autocommand==2.2.2
 certifi==2025.1.31
 chardet==5.2.0
 charset-normalizer==3.4.2
-cockpit @ file:///build/reproducible-path/cockpit-337/tmp/wheel/cockpit-337-py3-none-any.whl#sha256=61f0c7fa62fef1e91a3a9f33228ffbf90acd3c7eedbd97c78cbaf3b3e03f4439
 dbus-python==1.4.0
 distro-info==1.13
 fail2ban==1.1.0
