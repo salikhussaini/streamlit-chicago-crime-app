@@ -148,6 +148,31 @@ def run_stage(stage, src_dir):
         return False, execution_time
 
 
+def create_required_directories(base_dir):
+    """
+    Create all required data directories for the pipeline.
+    
+    Args:
+        base_dir: Base directory path
+    """
+    required_dirs = [
+        "data/raw_data",
+        "data/raw_data/api_crime_data",
+        "data/raw_data/gold_data",
+        "data/raw_data/gold_data_dash",
+        "data/silver_crime_data",
+        "data/silver_report_period_crime_data",
+        "data/gold_data",
+        "data/gold_data_dash"
+    ]
+    
+    for dir_path in required_dirs:
+        full_path = os.path.join(base_dir, dir_path)
+        if not os.path.exists(full_path):
+            os.makedirs(full_path, exist_ok=True)
+            logger.info(f"Created directory: {full_path}")
+
+
 def run_pipeline(stages_to_run=None, skip_failed=False):
     """
     Run the complete pipeline.
@@ -164,6 +189,9 @@ def run_pipeline(stages_to_run=None, skip_failed=False):
     if not os.path.exists(src_dir):
         logger.error(f"Source directory not found: {src_dir}")
         return {"success": False, "error": "Source directory not found"}
+    
+    # Create required directories
+    create_required_directories(BASE_DIR)
     
     logger.info(f"Starting Pipeline Execution")
     logger.info(f"Base Directory: {BASE_DIR}")
