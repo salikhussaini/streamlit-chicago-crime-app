@@ -13,7 +13,7 @@ import matplotlib.colors as mcolors
 # ----------------------------
 # Load Data
 # ----------------------------
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache for 5 minutes, then reload fresh data
 def load_data(file_path: str) -> pd.DataFrame:
     """Load the Chicago crime summary data."""
     try:
@@ -32,7 +32,7 @@ def load_data(file_path: str) -> pd.DataFrame:
 # ----------------------------
 # Load Forecast Data
 # ----------------------------
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache for 5 minutes, then reload fresh data
 def load_forecast_data(file_path: str) -> pd.DataFrame:
     """Load the crime count forecast data."""
     try:
