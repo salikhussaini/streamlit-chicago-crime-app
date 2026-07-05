@@ -389,7 +389,7 @@ with tab_forecasts:
         ]
 
         # Replace negative values with NaN
-        forecast_df[metric_options[1:]] = forecast_df[metric_options[1:]].applymap(lambda x: x if x >= 0 else np.nan)
+        forecast_df[metric_options[1:]] = forecast_df[metric_options[1:]].map(lambda x: x if x >= 0 else np.nan)
 
         # Filter valid columns (exclude columns with all NaN values)
         valid_columns = ["date", "actual_crime_count"] + [
