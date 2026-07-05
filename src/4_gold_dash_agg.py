@@ -3,7 +3,6 @@ import argparse
 import zipfile
 import pandas as pd
 import shutil
-import tempfile
 from pathlib import Path
 
 # Define the base directory
@@ -20,24 +19,27 @@ dashboard_output_dir = os.path.join(BASE_DIR, "data", "gold_data", "gold_parquet
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(dashboard_output_dir, exist_ok=True)
 
-# Function to extract all ZIP files in the input directory to a temporary directory
-def extract_zip_files_to_temp(input_dir):
-    temp_dir = tempfile.mkdtemp()
+# Function to extract all ZIP files in the input directory to output directory
+def extract_zip_files(input_dir, output_dir):
     zip_files = [file_name for file_name in os.listdir(input_dir) if file_name.endswith('.zip')]
     for i, file_name in enumerate(zip_files):
         zip_path = os.path.join(input_dir, file_name)
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+            zip_ref.extractall(output_dir)
         if (i + 1) % 250 == 0:
             print(f"Processed {i + 1} out of {len(zip_files)} zip files...")
     print(f"All {len(zip_files)} zip files have been processed.")
-    return temp_dir
 
-# Function to clean up temporary directory
-def clean_up_temp_dir(temp_dir):
-    if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-        print(f"Temporary directory {temp_dir} has been removed.")
+# Function to clean up parquet files from output directory (keep only combined_data.parquet)
+def clean_up_extracted_files(output_dir):
+    for f in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, f)
+        if f.endswith('.parquet') and f != 'combined_data.parquet':
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Could not delete {file_path}: {e}")
+    print(f"Cleaned up intermediate parquet files from {output_dir}")
 
 # Function to combine all Parquet files in the output directory incrementally and save as a single Parquet file
 def combine_parquet_files_incremental(output_dir, combined_file_name='combined_data.parquet'):
@@ -136,13 +138,12 @@ def main():
         print(f"Skipped: Output files already exist. Use --rerun to reprocess all files.")
         return
     
-    temp_dir = None
     try:
-        # Extract ZIP files to a temporary directory
-        temp_dir = extract_zip_files_to_temp(input_dir)
+        # Extract ZIP files directly to output directory
+        extract_zip_files(input_dir, output_dir)
 
-        # Combine all Parquet files from the temporary directory incrementally into a single Parquet file
-        combine_parquet_files_incremental(temp_dir, 'combined_data.parquet')
+        # Combine all Parquet files from output directory incrementally into a single Parquet file
+        combine_parquet_files_incremental(output_dir, 'combined_data.parquet')
 
         df = create_prior_df(output_dir, 'combined_data.parquet')
 
@@ -153,12 +154,15 @@ def main():
             dashboard_file_path = os.path.join(dashboard_output_dir, file_name)
             df.to_parquet(output_file_path, index=False)
             shutil.copy(output_file_path, dashboard_file_path)
+            print(f"Dashboard file saved to: {dashboard_file_path}")
+            
+            # Clean up intermediate extracted parquet files
+            clean_up_extracted_files(output_dir)
         else:
             print("Error: create_prior_df returned None, skipping export")
-    finally:
-        # Ensure temporary files are cleaned up even if the script is interrupted
-        if temp_dir:
-            clean_up_temp_dir(temp_dir)
+    except Exception as e:
+        print(f"Error during processing: {e}")
+        raise
 
 
 if __name__ == "__main__":

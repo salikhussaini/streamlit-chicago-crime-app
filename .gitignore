@@ -7,8 +7,10 @@ venv/
 
 # Data
 data/raw_data/
-data/gold_data/gold_parquet_reports/*.parquet
 data/transformed_data/
+# Allow only the final dashboard output to be tracked
+!data/gold_data/gold_parquet_reports/
+!data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet
 
 # Notebook checkpoints
 .ipynb_checkpoints/
