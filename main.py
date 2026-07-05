@@ -6,6 +6,7 @@ import os
 import geopandas as gpd
 import pydeck as pdk
 import numpy as np
+import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
@@ -174,7 +175,7 @@ with tab_trends:
             x="end_date:T",
             y="rolling_avg:Q"
         )
-        st.altair_chart(chart + avg_line, use_container_width=True)
+        st.altair_chart(chart + avg_line, width='stretch')
 
 # --- Crime Composition Tab ---
 with tab_crimes:
@@ -203,7 +204,7 @@ with tab_crimes:
             y=alt.Y(f"{crime_metric_type}:N", sort="-x"),
             tooltip=[crime_metric_type, "Count"]
         ).properties(width=600, height=400)
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')
     else:
         st.info("No crime composition data available for this report.")
 
@@ -292,10 +293,10 @@ with tab_geo:
                 # use a diverging norm / colormap when values span negative to positive
                 if (min_count < 0) and (max_count > 0):
                     norm = mcolors.TwoSlopeNorm(vmin=vmin, vcenter=0.0, vmax=vmax)
-                    cmap = cm.get_cmap("RdYlGn")  # negatives -> red, positives -> green
+                    cmap = plt.get_cmap("RdYlGn")  # negatives -> red, positives -> green
                 else:
                     norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-                    cmap = cm.get_cmap("YlGn")
+                    cmap = plt.get_cmap("YlGn")
 
                 def count_to_rgba(val):
                     " handle missing values with a neutral gray"
@@ -344,7 +345,7 @@ with tab_geo:
                     y=alt.Y("Geography:N", sort="-x"),
                     tooltip=["Geography", "Count"]
                 ).properties(width=600, height=400)
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart, width='stretch')
             else:
                 st.warning(f"GeoJSON file not found: {geojson_path}")
     else:
@@ -421,7 +422,7 @@ with tab_forecasts:
                 tooltip=["date:T", "Model:N", "Crime Count:Q"]
             ).properties(title="Actual and Forecasted Crime Counts")
 
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width='stretch')
         else:
             st.warning("No data available after filtering. Check your data for values > 0.")
     else:
