@@ -4,6 +4,7 @@ import altair as alt
 import pandas as pd
 import os
 import geopandas as gpd
+from shapely.geometry import Point
 import pydeck as pdk
 import numpy as np
 import matplotlib.pyplot as plt
@@ -325,7 +326,14 @@ with tab_geo:
                     extruded=False,
                     opacity=0.8,
                 )
-                midpoint = (merged.geometry.centroid.y.mean(), merged.geometry.centroid.x.mean())
+                # Reproject to projected CRS for accurate centroid calculation
+                merged_projected = merged.to_crs(epsg=3857)
+                centroid_projected = merged_projected.geometry.centroid
+                centroid_mean_x = centroid_projected.x.mean()
+                centroid_mean_y = centroid_projected.y.mean()
+                # Convert centroid back to lat/lon
+                centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
+                midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
                 view_state = pdk.ViewState(
                     latitude=midpoint[0],
                     longitude=midpoint[1],
