@@ -49,7 +49,7 @@ def load_forecast_data(file_path: str) -> pd.DataFrame:
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = "data/gold_data/chicago_crimes_gold_reports_.parquet"
+file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet"
 forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
 with st.spinner("Loading data..."):
     df = load_data(file_path)

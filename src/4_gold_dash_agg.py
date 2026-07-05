@@ -14,7 +14,7 @@ BASE_DIR = os.getenv("BASE_DIR", str(SCRIPT_DIR.parent))
 input_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data")
 # output folder for extracted files and combined Parquet file
 output_dir = os.path.join(BASE_DIR, "data", "raw_data", "gold_data_dash")
-dashboard_output_dir = os.path.join(BASE_DIR, "data", "gold_data")
+dashboard_output_dir = os.path.join(BASE_DIR, "data", "gold_data", "gold_parquet_reports")
 
 # Ensure the output directory exists
 os.makedirs(output_dir, exist_ok=True)
