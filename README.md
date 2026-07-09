@@ -133,7 +133,11 @@ data/
 - `actual_crime_count` - Actual crime count
 - `predicted_crime_count_*` - Multiple forecast model predictions
 
-## Running the Dashboard
+## Live Demo
+
+🚀 **Access the dashboard online:** https://app-chicago-crime.streamlit.app/
+
+## Running the Dashboard Locally
 
 ```bash
 streamlit run main.py
