@@ -1,156 +1,247 @@
-# Chicago Crimes Dashboard & ETL
+# 📊 Chicago Police Report Dashboard
 
-## Project Purpose
-The **Chicago Crimes Dashboard & ETL** project aims to provide an interactive and insightful platform for analyzing crime data in Chicago. By leveraging historical and recent crime data, this project enables users to explore trends, visualize geographic distributions, and compare crime metrics over time. The dashboard is designed for policymakers, law enforcement agencies, researchers, and the general public to gain actionable insights into crime patterns and make data-driven decisions.
+A comprehensive Streamlit dashboard for visualizing and analyzing Chicago Police Department crime data with interactive geographic maps, trend analysis, and forecasting capabilities.
 
----
+## Overview
+
+This dashboard provides real-time insights into Chicago crime statistics with:
+- **Summary metrics** and case counts
+- **Crime composition** breakdown by type, FBI code, and IUCR classification
+- **Geographic visualization** by district, ward, community area, and beat
+- **Trend analysis** with customizable time windows
+- **Prior period comparisons** with delta and percentage changes
+- **Crime forecasts** with actual vs. predicted values
 
 ## Features
-### Key Features of the Dashboard:
-- **📊 Overview Metrics**:
-  - Displays high-level crime statistics, including total cases, unique categories, and crime type breakdowns.
-- **🚨 Crime Composition**:
-  - Provides detailed insights into crime types and FBI codes, with visualizations for better understanding.
-- **🏙️ Geographic Visualizations**:
-  - Interactive maps to explore crime data by districts, wards, community areas, and police beats.
-- **📈 Trends Over Time**:
-  - Analyze crime trends over customizable time windows with rolling averages and comparisons.
-- **📉 Prior Period Comparison**:
-  - Compare current crime metrics with prior periods to identify changes and trends.
-- **Filters**:
-  - Dynamic filters for report type (e.g., R12, YTD) and reporting periods to customize the analysis.
 
----
+### 📊 Overview Tab
+- Case count metrics
+- Unique crime categories
+- Crime type metrics
+- Customizable metric display in 3-column layout
 
-## Data Sources
-The raw data used in this project is sourced from the **Chicago Police Department**'s publicly available crime data. The data includes detailed records of reported crimes, including dates, locations, and crime types. GeoJSON files for geographic visualizations are also included to map crime data to specific districts, wards, community areas, and beats.
+### 🚨 Crime Composition Tab
+- Filter crimes by:
+  - Crime Type
+  - FBI Code
+  - IUCR (Illinois Uniform Crime Reporting)
+- Bar charts ranked by frequency
 
-### Data Directory:
-- **`data/raw_data/`**: Contains raw CSV files with crime data.
-- **`data/geojson/`**: GeoJSON files for mapping geographic areas.
-- **`data/transformed_data/`**: Intermediate data files generated during ETL processes.
-- **`data/gold_data/`**: Final processed data used for the dashboard.
+### 🏙️ Geographic Breakdown Tab
+- Interactive maps with PyDeck visualization
+- Filter by geographic level:
+  - **District**
+  - **Ward**
+  - **Community Area**
+  - **Beat**
+- Comparison options:
+  - Current values
+  - Prior period values
+  - Difference (Current - Prior)
+  - Percentage change
+- Dynamic color mapping using diverging/sequential colormaps
 
----
+### 📈 Trends Tab
+- Time-series visualization of crime metrics
+- Adjustable trend window (6-72 months)
+- 10-month rolling average overlay
+- Metric selection dropdown
 
-## Quick Start
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/your-username/chicago-crimes-dashboard.git
-   cd chicago-crimes-dashboard
-   ```
-2. Install dependencies:
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
-3. Run the dashboard:
-   ```bash
-   streamlit run main.py
-   ```
-4. Place raw data files in the `data/raw_data/` directory.
+### 📉 Comparison Tab
+- Side-by-side prior period comparison
+- Calculates delta and percentage change
+- Formatted metric display
 
----
+### 📈 Forecasts Tab
+- Actual crime counts vs. predicted forecasts
+- Multiple forecast models support
+- Handles negative values gracefully
+- Dynamic y-axis scaling
 
-## ETL Pipeline
+## Setup & Installation
 
-### Running the Complete Pipeline
+### Prerequisites
+- Python 3.8+
+- Virtual environment (venv/conda recommended)
 
-The ETL pipeline consists of 7 stages that process Chicago crime data from raw API data through to dashboard aggregations:
-
-**Run entire pipeline (incremental mode - skips existing files):**
+### 1. Clone the Repository
 ```bash
-python src/orchestrate_pipeline.py
+git clone <repository-url>
+cd streamlit-chicago-crime-app
 ```
 
-**Run entire pipeline with full reprocessing:**
+### 2. Create Virtual Environment
 ```bash
-python src/orchestrate_pipeline.py --rerun-silver
+# Using venv
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # macOS/Linux
 ```
 
-**Run specific stages only:**
+### 3. Install Dependencies
 ```bash
-# Run only gold aggregation stages (use cached silver data)
-python src/orchestrate_pipeline.py --stages 5 6
-
-# Run bronze through gold stages, skip dashboard stage
-python src/orchestrate_pipeline.py --stages 0 1 2 3 4 5
-
-# Run with reprocessing of silver data
-python src/orchestrate_pipeline.py --stages 3 4 5 6 --rerun-silver
+pip install -r requirements.txt
 ```
 
-### Individual Stage Execution
+### Required Packages
+```
+streamlit
+altair
+pandas
+geopandas
+shapely
+pydeck
+numpy
+matplotlib
+```
 
-**Silver Data Enhancement (individual script):**
+## Data Structure
+
+The dashboard expects the following data files:
+
+```
+data/
+├── geojson/
+│   ├── chicago_beats.geojson
+│   ├── chicago_community_areas.geojson
+│   ├── chicago_districts.geojson
+│   └── chicago_wards.geojson
+├── gold_data/
+│   ├── crime_count_forecasts.csv
+│   └── gold_parquet_reports/
+│       └── chicago_crimes_gold_reports_.parquet
+```
+
+### Data Format Requirements
+
+**Main Data File** (`chicago_crimes_gold_reports_.parquet` or `.csv`):
+- `report_date` - Date report was generated
+- `start_date` - Reporting period start
+- `end_date` - Reporting period end
+- `report_type` - Report type (e.g., 'R12', 'YTD')
+- Metrics with prefixes:
+  - `total_*` - Case counts
+  - `unique_*` - Unique categories
+  - `crime_*` - Crime type counts
+  - `fbi_*` - FBI code counts
+  - `iucr_*` - IUCR code counts
+  - `district_*`, `ward_*`, `community_area_*`, `beat_*` - Geographic metrics
+  - `prior_*` - Prior period comparison values
+
+**Forecast File** (`crime_count_forecasts.csv`):
+- `date` - Forecast date
+- `actual_crime_count` - Actual crime count
+- `predicted_crime_count_*` - Multiple forecast model predictions
+
+## Running the Dashboard
+
 ```bash
-# Incremental mode (skip existing files)
-python src/1_silver_data_enhance.py
-
-# Reprocess all files
-python src/1_silver_data_enhance.py --rerun
+streamlit run main.py
 ```
 
-**Silver Report Data Creation (individual script):**
-```bash
-# Incremental mode (skip existing report periods)
-python src/2_silver_report_data_create.py
+The dashboard will open in your default browser at `http://localhost:8501`
 
-# Reprocess all report periods
-python src/2_silver_report_data_create.py --rerun
+### Configuration Options
+
+**Sidebar Filters:**
+- **Report End Date** - Select the reporting period
+- **Report Type** - Choose between 'R12' or 'YTD' reports
+
+**Cache Settings:**
+- Data is cached for 5 minutes (300 seconds)
+- Adjust `ttl` parameter in `@st.cache_data()` decorator to change cache duration
+
+## Project Structure
+
+```
+streamlit-chicago-crime-app/
+├── main.py                    # Main dashboard application
+├── requirements.txt           # Python dependencies
+├── README.md                  # This file
+├── LICENSE                    # Project license
+└── data/
+    ├── geojson/              # GeoJSON files for mapping
+    ├── gold_data/            # Processed/aggregated data
 ```
 
-### Pipeline Stages
+## Key Functions
 
-| Index | Stage | Module | Description |
-|-------|-------|--------|-------------|
-| 0 | Metadata Tracker (Initial) | `00_metadata_tracker` | Check baseline metadata and status tracking |
-| 1 | Bronze API Data Pull | `0_bronze_api_data_pull` | Fetch raw crime data from Chicago Police API |
-| 2 | Metadata Tracker (Verify) | `00_metadata_tracker` | Verify and update metadata after bronze pull |
-| 3 | Silver Data Enhancement | `1_silver_data_enhance` | Clean and enrich raw data with 50+ features |
-| 4 | Silver Report Data Creation | `2_silver_report_data_create` | Create R12 and YTD report period aggregations |
-| 5 | Gold Aggregation | `3_gold_agg` | Aggregate to gold layer using ProcessPoolExecutor |
-| 6 | Gold Dashboard Aggregation | `4_gold_dash_agg` | Final dashboard-layer aggregations |
+### Data Loading
+- `load_data(file_path)` - Loads CSV or Parquet crime data with caching
+- `load_forecast_data(file_path)` - Loads forecast CSV with caching
 
-### Performance Notes
+### Color Mapping
+- Adaptive color normalization for geographic visualizations
+- Diverging colormap (RdYlGn) for negative/positive values
+- Sequential colormap (YlGn) for positive-only values
 
-- **Incremental Mode (Default)**: Recommended for routine runs. Skips already-processed files, significantly reducing execution time.
-  - Typical execution: ~30 seconds per 1,000 files
-  - Full pipeline on first run: ~4-5 minutes for 9,307 files
-  
-- **Rerun Mode** (`--rerun` or `--rerun-silver`): Use when you need to reprocess all data or apply code changes to existing files.
+### Data Aggregation
+- Automatic metric grouping by prefix
+- Dynamic comparison pair generation
+- Geographic ID extraction and validation
+
+## Technical Stack
+
+- **Framework:** Streamlit
+- **Data Processing:** Pandas, NumPy
+- **Geospatial:** GeoPandas, Shapely
+- **Visualization:** Altair, PyDeck, Matplotlib
+- **Data Format:** Parquet, CSV, GeoJSON
+
+## Performance Notes
+
+- Data is cached for 5 minutes to balance freshness and performance
+- GeoJSON files are loaded on-demand for selected geographic types
+- Geographic centroid calculation uses projected coordinates (EPSG:3857) for accuracy
+
+## Customization
+
+### Adding New Metrics
+1. Add columns with appropriate prefix to source data
+2. Metrics are automatically detected and organized:
+   - `total_*` → Case Metrics
+   - `unique_*` → Unique Metrics
+   - `crime_*`, `fbi_*`, `iucr_*` → Crime Type Metrics
+   - Geographic prefixes → Geographic Metrics
+
+### Adjusting Color Schemes
+Modify the `count_to_rgba()` function in the Geographic Breakdown tab to change:
+- Colormap (line: `cmap = plt.get_cmap("YlGn")`)
+- Alpha transparency values
+- Normalization approach
+
+### Extending Tabs
+To add new visualization tabs:
+1. Create new tab in `st.tabs()` call
+2. Add data logic and Altair/PyDeck visualization
+3. Link to appropriate data columns
+
+## Troubleshooting
+
+**"Data file not found"**
+- Verify file paths in code match your data directory structure
+- Use relative paths from project root
+
+**Map not loading**
+- Ensure GeoJSON files exist at specified paths
+- Check GeoJSON file format validity
+- Verify geographic ID fields match data values
+
+**Forecast visualization issues**
+- Check for NaN/negative values in forecast columns
+- Ensure `actual_crime_count` has valid values
+- Verify date column is properly formatted
+
+## Author
+
+Salik Hussaini
+
+## License
+
+See [LICENSE](LICENSE) file for details.
 
 ---
 
-## Directory Structure
-```
-.
-├── main.py                # Streamlit dashboard entry point
-├── src/                   # ETL and data processing scripts
-│   └── src.py             # Core ETL functions
-├── data/                  # Data directory
-│   ├── geojson/           # GeoJSON files for map visualization
-│   ├── gold_data/         # Processed data (not committed)
-│   ├── raw_data/          # Raw data files (not committed)
-│   └── transformed_data/  # Intermediate transformed data (not committed)
-├── .gitignore             # Ignore unnecessary files
-├── requirements.txt       # Python dependencies
-└── readme.md              # Project documentation
-```
-
----
-
-## Screenshots
-### Dashboard Overview:
-![Dashboard Overview](https://via.placeholder.com/800x400?text=Dashboard+Overview+Screenshot)
-
-### Geographic Visualization:
-![Geographic Visualization](https://via.placeholder.com/800x400?text=Geographic+Visualization+Screenshot)
-
-### Crime Trends:
-![Crime Trends](https://via.placeholder.com/800x400?text=Crime+Trends+Screenshot)
-
----
-## Contributing to Chicago Crimes Dashboard
-Thank you for considering contributing! Here's how you can help:
-- Report bugs or suggest features via GitHub Issues.
-- Submit pull requests with clear descriptions and test coverage.
+**Dashboard Version:** v1.0.0  
+**Last Updated:** 2026-01-31  
+Powered by Streamlit
