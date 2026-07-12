@@ -49,13 +49,34 @@ def load_forecast_data(file_path: str) -> pd.DataFrame:
     return df
 
 # ----------------------------
+# Load Choropleth Data
+# ----------------------------
+@st.cache_data(ttl=300)  # Cache for 5 minutes, then reload fresh data
+def load_choropleth_data(file_path: str) -> pd.DataFrame:
+    """Load the zip code choropleth data."""
+    try:
+        if file_path.endswith('.parquet'):
+            df = pd.read_parquet(file_path)
+            if 'report_end_date' in df.columns:
+                df['report_end_date'] = pd.to_datetime(df['report_end_date'])
+        else:
+            st.error("Unsupported file format. Use Parquet.")
+            return pd.DataFrame()
+    except FileNotFoundError:
+        st.warning(f"Warning: Choropleth data file not found at: {file_path}")
+        return pd.DataFrame()
+    return df
+
+# ----------------------------
 # File Path
 # ----------------------------
 file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet"
 forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
+choropleth_file_path = "data/raw_data/gold_data_dash/chicago_crimes_zipcode_choropleth.parquet"
 with st.spinner("Loading data..."):
     df = load_data(file_path)
     forecast_df = load_forecast_data(forecast_file_path)
+    choropleth_df = load_choropleth_data(choropleth_file_path)
 df["end_date"] = pd.to_datetime(df["report_end_date"])
 df["start_date"] = pd.to_datetime(df["report_start_date"])
 df["report_date"] = df["report_date"]
@@ -125,8 +146,8 @@ if not filtered_df.empty:
 # ----------------------------
 st.header("📌 Dashboard Views")
 
-tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison, tab_forecasts = st.tabs(
-    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "📈 Trends", "📉 Comparison", "📈 Forecasts"]
+tab_overview, tab_crimes, tab_geo, tab_zipcode, tab_trends, tab_comparison, tab_forecasts = st.tabs(
+    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "🗺️ Zip Code Choropleth", "📈 Trends", "📉 Comparison", "📈 Forecasts"]
 )
 
 # --- Overview Tab ---
@@ -208,6 +229,118 @@ with tab_crimes:
         st.altair_chart(chart, width='stretch')
     else:
         st.info("No crime composition data available for this report.")
+
+
+# --- Zip Code Choropleth Tab ---
+with tab_zipcode:
+    st.subheader("🗺️ Zip Code Crime Choropleth")
+    if not choropleth_df.empty:
+        # Filter choropleth data to match selected filters
+        choropleth_filtered = choropleth_df[
+            (choropleth_df["report_type"] == selected_report_type) &
+            (choropleth_df["report_end_date"] == selected_end_date)
+        ]
+        
+        if not choropleth_filtered.empty:
+            # Load geojson
+            geojson_path = "data/geojson/chicago_zip_codes.geojson"
+            if os.path.exists(geojson_path):
+                gdf = gpd.read_file(geojson_path)
+                
+                # Prepare data for merge
+                choropleth_filtered["zip_code"] = choropleth_filtered["zip_code"].astype(str)
+                gdf["ZIP"] = gdf["ZIP"].astype(str)
+                
+                # Merge choropleth data with geojson
+                merged = gdf.merge(
+                    choropleth_filtered[["zip_code", "zip_code_crime_count", "total_cases"]],
+                    left_on="ZIP",
+                    right_on="zip_code",
+                    how="left"
+                )
+                merged["zip_code_crime_count"] = merged["zip_code_crime_count"].fillna(0)
+                
+                # Create color mapping
+                min_count = merged["zip_code_crime_count"].min()
+                max_count = merged["zip_code_crime_count"].max()
+                
+                if min_count == max_count:
+                    vmin, vmax = 0, max(1, float(max_count))
+                else:
+                    vmin, vmax = float(min_count), float(max_count)
+                
+                norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+                cmap = plt.get_cmap("YlOrRd")  # Yellow -> Orange -> Red for crime intensity
+                
+                def count_to_rgba(val):
+                    """Convert crime count to RGBA color."""
+                    if pd.isna(val) or val == 0:
+                        alpha = 0.5
+                        return [220, 220, 220, int(alpha * 255)]
+                    r, g, b, a = cmap(norm(val))
+                    alpha = 0.85
+                    return [int(r * 255), int(g * 255), int(b * 255), int(alpha * 255)]
+                
+                merged["fill_color"] = merged["zip_code_crime_count"].apply(count_to_rgba)
+                
+                # Create pydeck layer
+                geojson_dict = merged.__geo_interface__
+                layer = pdk.Layer(
+                    "GeoJsonLayer",
+                    data=geojson_dict,
+                    get_fill_color="properties.fill_color",
+                    pickable=True,
+                    auto_highlight=True,
+                    get_line_color=[0, 0, 0, 100],
+                    line_width_min_pixels=1,
+                    filled=True,
+                    stroked=True,
+                    opacity=0.85,
+                )
+                
+                # Calculate map center
+                merged_projected = merged.to_crs(epsg=3857)
+                centroid_projected = merged_projected.geometry.centroid
+                centroid_mean_x = centroid_projected.x.mean()
+                centroid_mean_y = centroid_projected.y.mean()
+                centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
+                midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
+                
+                view_state = pdk.ViewState(
+                    latitude=midpoint[0],
+                    longitude=midpoint[1],
+                    zoom=10,
+                    pitch=0,
+                )
+                
+                st.pydeck_chart(
+                    pdk.Deck(
+                        layers=[layer],
+                        initial_view_state=view_state,
+                        tooltip={"text": "Zip Code: {ZIP}\nCrimes: {zip_code_crime_count}"}
+                    )
+                )
+                
+                # Show top zip codes by crime count
+                st.subheader("📊 Top Zip Codes by Crime Count")
+                zip_summary = choropleth_filtered[["zip_code", "zip_code_crime_count"]].sort_values(
+                    "zip_code_crime_count", ascending=False
+                ).head(20)
+                
+                chart = alt.Chart(zip_summary).mark_bar().encode(
+                    x=alt.X("zip_code_crime_count:Q", title="Crime Count"),
+                    y=alt.Y("zip_code:N", sort="-x", title="Zip Code"),
+                    tooltip=["zip_code", "zip_code_crime_count"],
+                    color=alt.Color("zip_code_crime_count:Q", scale=alt.Scale(scheme="reds"))
+                ).properties(width=600, height=600)
+                st.altair_chart(chart, use_container_width=True)
+                
+            else:
+                st.warning(f"GeoJSON file not found: {geojson_path}")
+        else:
+            st.info("No zip code data available for the selected filters.")
+    else:
+        st.info("Choropleth data not available. Please ensure zip code enrichment is complete.")
 
 
 # --- Geographic Breakdown Tab ---
