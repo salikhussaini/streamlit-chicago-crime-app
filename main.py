@@ -146,8 +146,8 @@ if not filtered_df.empty:
 # ----------------------------
 st.header("📌 Dashboard Views")
 
-tab_overview, tab_crimes, tab_geo, tab_zipcode, tab_trends, tab_comparison, tab_forecasts = st.tabs(
-    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "🗺️ Zip Code Choropleth", "📈 Trends", "📉 Comparison", "📈 Forecasts"]
+tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison, tab_forecasts = st.tabs(
+    ["📊 Overview", "🚨 Crime Composition", "🏙️ Geographic Breakdown", "📈 Trends", "📉 Comparison", "📈 Forecasts"]
 )
 
 # --- Overview Tab ---
@@ -231,116 +231,6 @@ with tab_crimes:
         st.info("No crime composition data available for this report.")
 
 
-# --- Zip Code Choropleth Tab ---
-with tab_zipcode:
-    st.subheader("🗺️ Zip Code Crime Choropleth")
-    if not choropleth_df.empty:
-        # Filter choropleth data to match selected filters
-        choropleth_filtered = choropleth_df[
-            (choropleth_df["report_type"] == selected_report_type) &
-            (choropleth_df["report_end_date"] == selected_end_date)
-        ]
-        
-        if not choropleth_filtered.empty:
-            # Load geojson
-            geojson_path = "data/geojson/chicago_zip_codes.geojson"
-            if os.path.exists(geojson_path):
-                gdf = gpd.read_file(geojson_path)
-                
-                # Prepare data for merge
-                choropleth_filtered["zip_code"] = choropleth_filtered["zip_code"].astype(str)
-                gdf["zip"] = gdf["zip"].astype(str)
-                
-                # Merge choropleth data with geojson
-                merged = gdf.merge(
-                    choropleth_filtered[["zip_code", "zip_code_crime_count", "total_cases"]],
-                    left_on="zip",
-                    right_on="zip_code",
-                    how="left"
-                )
-                merged["zip_code_crime_count"] = merged["zip_code_crime_count"].fillna(0)
-                
-                # Create color mapping
-                min_count = merged["zip_code_crime_count"].min()
-                max_count = merged["zip_code_crime_count"].max()
-                
-                if min_count == max_count:
-                    vmin, vmax = 0, max(1, float(max_count))
-                else:
-                    vmin, vmax = float(min_count), float(max_count)
-                
-                norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-                cmap = plt.get_cmap("YlOrRd")  # Yellow -> Orange -> Red for crime intensity
-                
-                def count_to_rgba(val):
-                    """Convert crime count to RGBA color."""
-                    if pd.isna(val) or val == 0:
-                        alpha = 0.5
-                        return [220, 220, 220, int(alpha * 255)]
-                    r, g, b, a = cmap(norm(val))
-                    alpha = 0.85
-                    return [int(r * 255), int(g * 255), int(b * 255), int(alpha * 255)]
-                
-                merged["fill_color"] = merged["zip_code_crime_count"].apply(count_to_rgba)
-                
-                # Create pydeck layer
-                geojson_dict = merged.__geo_interface__
-                layer = pdk.Layer(
-                    "GeoJsonLayer",
-                    data=geojson_dict,
-                    get_fill_color="properties.fill_color",
-                    pickable=True,
-                    auto_highlight=True,
-                    get_line_color=[0, 0, 0, 100],
-                    line_width_min_pixels=1,
-                    filled=True,
-                    stroked=True,
-                    opacity=0.85,
-                )
-                
-                # Calculate map center
-                merged_projected = merged.to_crs(epsg=3857)
-                centroid_projected = merged_projected.geometry.centroid
-                centroid_mean_x = centroid_projected.x.mean()
-                centroid_mean_y = centroid_projected.y.mean()
-                centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
-                midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
-                
-                view_state = pdk.ViewState(
-                    latitude=midpoint[0],
-                    longitude=midpoint[1],
-                    zoom=10,
-                    pitch=0,
-                )
-                
-                st.pydeck_chart(
-                    pdk.Deck(
-                        layers=[layer],
-                        initial_view_state=view_state,
-                        tooltip={"text": "Zip Code: {ZIP}\nCrimes: {zip_code_crime_count}"}
-                    )
-                )
-                
-                # Show top zip codes by crime count
-                st.subheader("📊 Top Zip Codes by Crime Count")
-                zip_summary = choropleth_filtered[["zip_code", "zip_code_crime_count"]].sort_values(
-                    "zip_code_crime_count", ascending=False
-                ).head(20)
-                
-                chart = alt.Chart(zip_summary).mark_bar().encode(
-                    x=alt.X("zip_code_crime_count:Q", title="Crime Count"),
-                    y=alt.Y("zip_code:N", sort="-x", title="Zip Code"),
-                    tooltip=["zip_code", "zip_code_crime_count"],
-                    color=alt.Color("zip_code_crime_count:Q", scale=alt.Scale(scheme="reds"))
-                ).properties(width=600, height=600)
-                st.altair_chart(chart, use_container_width=True)
-                
-            else:
-                st.warning(f"GeoJSON file not found: {geojson_path}")
-        else:
-            st.info("No zip code data available for the selected filters.")
-    else:
-        st.info("Choropleth data not available. Please ensure zip code enrichment is complete.")
 
 
 # --- Geographic Breakdown Tab ---
@@ -349,146 +239,258 @@ with tab_geo:
     if not filtered_df.empty:
         geo_type = st.selectbox(
             "Select Geographic Type",
-            ("District", "Ward", "Community Area", "Beat"),
+            ("District", "Ward", "Community Area", "Beat", "Zip Code"),
             key="geo_type_select"
         )
 
-        if geo_type == "Ward":
-            geo_cols = [col for col in GEO_METRICS if col.startswith("ward_")]
-            geojson_path = "data/geojson/chicago_wards.geojson"
-            id_field = "ward_id"
-        elif geo_type == "District":
-            geo_cols = [col for col in GEO_METRICS if col.startswith("district_")]
-            geojson_path = "data/geojson/chicago_districts.geojson"
-            id_field = "dist_num"
-        elif geo_type == "Community Area":
-            geo_cols = [col for col in GEO_METRICS if col.startswith("community_area_")]
-            geojson_path = "data/geojson/chicago_community_areas.geojson"
-            id_field = "area_numbe"
-        else:  # Beat
-            geo_cols = [col for col in GEO_METRICS if col.startswith("beat_")]
-            geojson_path = "data/geojson/chicago_beats.geojson"
-            id_field = "beat_num"
-
-        # Comparison option
-        compare_option = st.selectbox(
-            "Compare (value to visualize)",
-            ("Current", "Prior", "Difference (Current - Prior)", "% Change (Current vs Prior)"),
-            key="geo_compare_select"
-        )
-
-        # Build geo dataframe with Current and Prior columns
-        geo_rows = []
-        for col in geo_cols:
-            try:
-                geo_id = int(col.split("_")[-1])
-            except Exception:
-                continue
-            current_val = snapshot.get(col, np.nan)
-            prior_val = snapshot.get(f"{prior_prefix}{col}", np.nan)
-            geo_rows.append({"Geography": geo_id, "Current": current_val, "Prior": prior_val})
-
-        if len(geo_rows) == 0:
-            st.info("No geographic data available for the selected type.")
-        else:
-            geo_df = pd.DataFrame(geo_rows)
-
-            # Compute the Count column based on selection
-            if compare_option == "Current":
-                geo_df["Count"] = geo_df["Current"]
-            elif compare_option == "Prior":
-                geo_df["Count"] = geo_df["Prior"]
-            elif compare_option == "Difference (Current - Prior)":
-                geo_df["Count"] = geo_df["Current"] - geo_df["Prior"]
-            else:  # % Change
-                geo_df["Count"] = np.where(
-                    (geo_df["Prior"].notna()) & (geo_df["Prior"] != 0),
-                    (geo_df["Current"] - geo_df["Prior"]) / geo_df["Prior"] * 100,
-                    np.nan
-                )
-
-            geo_df["Geography"] = geo_df["Geography"].astype(int).astype(str)
-            geo_df = geo_df.sort_values("Count", ascending=False)
-
-            # --- Map Visualization ---
-            if os.path.exists(geojson_path):
-                gdf = gpd.read_file(geojson_path)
-                gdf[id_field] = gdf[id_field].astype(int).astype(str)
-                merged = gdf.merge(geo_df, left_on=id_field, right_on="Geography", how="left", indicator=True)
-                merged["Count"] = merged["Count"].fillna(0)
-
-                # build RGBA colors per feature (0-255) using a matplotlib colormap
-                min_count, max_count = merged["Count"].min(), merged["Count"].max()
-                if min_count == max_count:
-                    vmin, vmax = 0, max(1, float(max_count))
+        # Handle Zip Code separately (uses choropleth data)
+        if geo_type == "Zip Code":
+            if not choropleth_df.empty:
+                # Filter choropleth data to match selected filters
+                choropleth_filtered = choropleth_df[
+                    (choropleth_df["report_type"] == selected_report_type) &
+                    (choropleth_df["report_end_date"] == selected_end_date)
+                ]
+                
+                if not choropleth_filtered.empty:
+                    # Load geojson
+                    geojson_path = "data/geojson/chicago_zip_codes.geojson"
+                    if os.path.exists(geojson_path):
+                        gdf = gpd.read_file(geojson_path)
+                        
+                        # Prepare data for merge
+                        choropleth_filtered["zip_code"] = choropleth_filtered["zip_code"].astype(str)
+                        gdf["zip"] = gdf["zip"].astype(str)
+                        
+                        # Merge choropleth data with geojson
+                        merged = gdf.merge(
+                            choropleth_filtered[["zip_code", "zip_code_crime_count", "total_cases"]],
+                            left_on="zip",
+                            right_on="zip_code",
+                            how="left"
+                        )
+                        merged["zip_code_crime_count"] = merged["zip_code_crime_count"].fillna(0)
+                        
+                        # Create color mapping
+                        min_count = merged["zip_code_crime_count"].min()
+                        max_count = merged["zip_code_crime_count"].max()
+                        
+                        if min_count == max_count:
+                            vmin, vmax = 0, max(1, float(max_count))
+                        else:
+                            vmin, vmax = float(min_count), float(max_count)
+                        
+                        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+                        cmap = plt.get_cmap("YlOrRd")  # Yellow -> Orange -> Red for crime intensity
+                        
+                        def count_to_rgba(val):
+                            """Convert crime count to RGBA color."""
+                            if pd.isna(val) or val == 0:
+                                alpha = 0.5
+                                return [220, 220, 220, int(alpha * 255)]
+                            r, g, b, a = cmap(norm(val))
+                            alpha = 0.85
+                            return [int(r * 255), int(g * 255), int(b * 255), int(alpha * 255)]
+                        
+                        merged["fill_color"] = merged["zip_code_crime_count"].apply(count_to_rgba)
+                        
+                        # Create pydeck layer
+                        geojson_dict = merged.__geo_interface__
+                        layer = pdk.Layer(
+                            "GeoJsonLayer",
+                            data=geojson_dict,
+                            get_fill_color="properties.fill_color",
+                            pickable=True,
+                            auto_highlight=True,
+                            get_line_color=[0, 0, 0, 100],
+                            line_width_min_pixels=1,
+                            filled=True,
+                            stroked=True,
+                            opacity=0.85,
+                        )
+                        
+                        # Calculate map center
+                        merged_projected = merged.to_crs(epsg=3857)
+                        centroid_projected = merged_projected.geometry.centroid
+                        centroid_mean_x = centroid_projected.x.mean()
+                        centroid_mean_y = centroid_projected.y.mean()
+                        centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
+                        midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
+                        
+                        view_state = pdk.ViewState(
+                            latitude=midpoint[0],
+                            longitude=midpoint[1],
+                            zoom=10,
+                            pitch=0,
+                        )
+                        
+                        st.pydeck_chart(
+                            pdk.Deck(
+                                layers=[layer],
+                                initial_view_state=view_state,
+                                tooltip={"text": "Zip Code: {ZIP}\nCrimes: {zip_code_crime_count}"}
+                            )
+                        )
+                        
+                        # Show top zip codes by crime count
+                        st.subheader("📊 Top Zip Codes by Crime Count")
+                        zip_summary = choropleth_filtered[["zip_code", "zip_code_crime_count"]].sort_values(
+                            "zip_code_crime_count", ascending=False
+                        ).head(20)
+                        
+                        chart = alt.Chart(zip_summary).mark_bar().encode(
+                            x=alt.X("zip_code_crime_count:Q", title="Crime Count"),
+                            y=alt.Y("zip_code:N", sort="-x", title="Zip Code"),
+                            tooltip=["zip_code", "zip_code_crime_count"],
+                            color=alt.Color("zip_code_crime_count:Q", scale=alt.Scale(scheme="reds"))
+                        ).properties(width=600, height=600)
+                        st.altair_chart(chart, use_container_width=True)
+                        
+                    else:
+                        st.warning(f"GeoJSON file not found: {geojson_path}")
                 else:
-                    vmin, vmax = float(min_count), float(max_count)
-
-                # use a diverging norm / colormap when values span negative to positive
-                if (min_count < 0) and (max_count > 0):
-                    norm = mcolors.TwoSlopeNorm(vmin=vmin, vcenter=0.0, vmax=vmax)
-                    cmap = plt.get_cmap("RdYlGn")  # negatives -> red, positives -> green
-                else:
-                    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
-                    cmap = plt.get_cmap("YlGn")
-
-                def count_to_rgba(val):
-                    " handle missing values with a neutral gray"
-                    
-                    if pd.isna(val):
-                        alpha = 0.75
-                        return [200, 200, 200, int(alpha * 255)]
-                    r, g, b, a = cmap(norm(val))
-                    alpha = 0.75
-                    return [int(r * 255), int(g * 255), int(b * 255), int(alpha * 255)]
-
-                merged["fill_color"] = merged["Count"].apply(count_to_rgba)
-
-                geojson_dict = merged.__geo_interface__
-
-                layer = pdk.Layer(
-                    "GeoJsonLayer",
-                    data=geojson_dict,
-                    get_fill_color="properties.fill_color",
-                    pickable=True,
-                    auto_highlight=True,
-                    get_line_color=[0, 0, 0, 80],
-                    line_width_min_pixels=1,
-                    filled=True,
-                    stroked=True,
-                    extruded=False,
-                    opacity=0.8,
-                )
-                # Reproject to projected CRS for accurate centroid calculation
-                merged_projected = merged.to_crs(epsg=3857)
-                centroid_projected = merged_projected.geometry.centroid
-                centroid_mean_x = centroid_projected.x.mean()
-                centroid_mean_y = centroid_projected.y.mean()
-                # Convert centroid back to lat/lon
-                centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
-                midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
-                view_state = pdk.ViewState(
-                    latitude=midpoint[0],
-                    longitude=midpoint[1],
-                    zoom=9,
-                    pitch=0,
-                )
-                st.pydeck_chart(
-                    pdk.Deck(
-                        layers=[layer],
-                        initial_view_state=view_state,
-                        tooltip={"text": f"{geo_type}: {{{id_field}}}\nValue: {{Count}}"}
-                    )
-                )
-
-                chart = alt.Chart(geo_df).mark_bar().encode(
-                    x=alt.X("Count:Q", sort="-y"),
-                    y=alt.Y("Geography:N", sort="-x"),
-                    tooltip=["Geography", "Count"]
-                ).properties(width=600, height=400)
-                st.altair_chart(chart, width='stretch')
+                    st.info("No zip code data available for the selected filters.")
             else:
-                st.warning(f"GeoJSON file not found: {geojson_path}")
+                st.info("Choropleth data not available. Please ensure zip code enrichment is complete.")
+        
+        # Handle other geographic types
+        else:
+            if geo_type == "Ward":
+                geo_cols = [col for col in GEO_METRICS if col.startswith("ward_")]
+                geojson_path = "data/geojson/chicago_wards.geojson"
+                id_field = "ward_id"
+            elif geo_type == "District":
+                geo_cols = [col for col in GEO_METRICS if col.startswith("district_")]
+                geojson_path = "data/geojson/chicago_districts.geojson"
+                id_field = "dist_num"
+            elif geo_type == "Community Area":
+                geo_cols = [col for col in GEO_METRICS if col.startswith("community_area_")]
+                geojson_path = "data/geojson/chicago_community_areas.geojson"
+                id_field = "area_numbe"
+            else:  # Beat
+                geo_cols = [col for col in GEO_METRICS if col.startswith("beat_")]
+                geojson_path = "data/geojson/chicago_beats.geojson"
+                id_field = "beat_num"
+
+            # Comparison option
+            compare_option = st.selectbox(
+                "Compare (value to visualize)",
+                ("Current", "Prior", "Difference (Current - Prior)", "% Change (Current vs Prior)"),
+                key="geo_compare_select"
+            )
+
+            # Build geo dataframe with Current and Prior columns
+            geo_rows = []
+            for col in geo_cols:
+                try:
+                    geo_id = int(col.split("_")[-1])
+                except Exception:
+                    continue
+                current_val = snapshot.get(col, np.nan)
+                prior_val = snapshot.get(f"{prior_prefix}{col}", np.nan)
+                geo_rows.append({"Geography": geo_id, "Current": current_val, "Prior": prior_val})
+
+            if len(geo_rows) == 0:
+                st.info("No geographic data available for the selected type.")
+            else:
+                geo_df = pd.DataFrame(geo_rows)
+
+                # Compute the Count column based on selection
+                if compare_option == "Current":
+                    geo_df["Count"] = geo_df["Current"]
+                elif compare_option == "Prior":
+                    geo_df["Count"] = geo_df["Prior"]
+                elif compare_option == "Difference (Current - Prior)":
+                    geo_df["Count"] = geo_df["Current"] - geo_df["Prior"]
+                else:  # % Change
+                    geo_df["Count"] = np.where(
+                        (geo_df["Prior"].notna()) & (geo_df["Prior"] != 0),
+                        (geo_df["Current"] - geo_df["Prior"]) / geo_df["Prior"] * 100,
+                        np.nan
+                    )
+
+                geo_df["Geography"] = geo_df["Geography"].astype(int).astype(str)
+                geo_df = geo_df.sort_values("Count", ascending=False)
+
+                # --- Map Visualization ---
+                if os.path.exists(geojson_path):
+                    gdf = gpd.read_file(geojson_path)
+                    gdf[id_field] = gdf[id_field].astype(int).astype(str)
+                    merged = gdf.merge(geo_df, left_on=id_field, right_on="Geography", how="left", indicator=True)
+                    merged["Count"] = merged["Count"].fillna(0)
+
+                    # build RGBA colors per feature (0-255) using a matplotlib colormap
+                    min_count, max_count = merged["Count"].min(), merged["Count"].max()
+                    if min_count == max_count:
+                        vmin, vmax = 0, max(1, float(max_count))
+                    else:
+                        vmin, vmax = float(min_count), float(max_count)
+
+                    # use a diverging norm / colormap when values span negative to positive
+                    if (min_count < 0) and (max_count > 0):
+                        norm = mcolors.TwoSlopeNorm(vmin=vmin, vcenter=0.0, vmax=vmax)
+                        cmap = plt.get_cmap("RdYlGn")  # negatives -> red, positives -> green
+                    else:
+                        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+                        cmap = plt.get_cmap("YlGn")
+
+                    def count_to_rgba(val):
+                        " handle missing values with a neutral gray"
+                        
+                        if pd.isna(val):
+                            alpha = 0.75
+                            return [200, 200, 200, int(alpha * 255)]
+                        r, g, b, a = cmap(norm(val))
+                        alpha = 0.75
+                        return [int(r * 255), int(g * 255), int(b * 255), int(alpha * 255)]
+
+                    merged["fill_color"] = merged["Count"].apply(count_to_rgba)
+
+                    geojson_dict = merged.__geo_interface__
+
+                    layer = pdk.Layer(
+                        "GeoJsonLayer",
+                        data=geojson_dict,
+                        get_fill_color="properties.fill_color",
+                        pickable=True,
+                        auto_highlight=True,
+                        get_line_color=[0, 0, 0, 80],
+                        line_width_min_pixels=1,
+                        filled=True,
+                        stroked=True,
+                        extruded=False,
+                        opacity=0.8,
+                    )
+                    # Reproject to projected CRS for accurate centroid calculation
+                    merged_projected = merged.to_crs(epsg=3857)
+                    centroid_projected = merged_projected.geometry.centroid
+                    centroid_mean_x = centroid_projected.x.mean()
+                    centroid_mean_y = centroid_projected.y.mean()
+                    # Convert centroid back to lat/lon
+                    centroid_point = gpd.GeoSeries([Point(centroid_mean_x, centroid_mean_y)], crs='EPSG:3857').to_crs('EPSG:4326')
+                    midpoint = (centroid_point.y.values[0], centroid_point.x.values[0])
+                    view_state = pdk.ViewState(
+                        latitude=midpoint[0],
+                        longitude=midpoint[1],
+                        zoom=9,
+                        pitch=0,
+                    )
+                    st.pydeck_chart(
+                        pdk.Deck(
+                            layers=[layer],
+                            initial_view_state=view_state,
+                            tooltip={"text": f"{geo_type}: {{{id_field}}}\nValue: {{Count}}"}
+                        )
+                    )
+
+                    chart = alt.Chart(geo_df).mark_bar().encode(
+                        x=alt.X("Count:Q", sort="-y"),
+                        y=alt.Y("Geography:N", sort="-x"),
+                        tooltip=["Geography", "Count"]
+                    ).properties(width=600, height=400)
+                    st.altair_chart(chart, width='stretch')
+                else:
+                    st.warning(f"GeoJSON file not found: {geojson_path}")
     else:
         st.info("No geographic breakdown data available for this report.")
 
