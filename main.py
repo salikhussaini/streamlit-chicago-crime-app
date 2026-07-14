@@ -251,49 +251,53 @@ with tab_geo:
                 if len(available_dates) == 0:
                     st.info("No zip code data available for this report type.")
                 else:
+                    # Initialize animation session state
+                    if "zip_animation_frame" not in st.session_state:
+                        st.session_state.zip_animation_frame = 0
+                    if "zip_animation_enabled" not in st.session_state:
+                        st.session_state.zip_animation_enabled = False
+                    if "zip_animation_speed" not in st.session_state:
+                        st.session_state.zip_animation_speed = "Normal"
+                    
                     # Animation controls
                     col1, col2, col3 = st.columns([1, 1, 2])
                     
                     with col1:
-                        animate = st.checkbox("🎬 Animate through dates", value=False, key="animate_zip_dates")
+                        animate = st.checkbox("🎬 Animate through dates", value=st.session_state.zip_animation_enabled, key="animate_zip_dates")
+                        st.session_state.zip_animation_enabled = animate
                     
                     with col2:
                         if animate:
-                            speed = st.selectbox("Speed", options=["Slow", "Normal", "Fast", "Super Fast"], key="animation_speed_zip")
-                            speed_delay = {"Slow": 1.5, "Normal": 1.0, "Fast": 0.5, "Super Fast": 0.25}[speed]
+                            speed = st.selectbox("Speed", options=["Slow", "Normal", "Fast", "Super Fast"], index=["Slow", "Normal", "Fast", "Super Fast"].index(st.session_state.zip_animation_speed), key="animation_speed_zip")
+                            st.session_state.zip_animation_speed = speed
+                            speed_delay = {"Slow": 2.0, "Normal": 1.5, "Fast": 1.0, "Super Fast": 0.5}[speed]
                         else:
-                            speed_delay = 1.0
+                            speed_delay = 0
                     
                     with col3:
                         animated_date_idx = st.slider(
                             "Date Index",
                             min_value=0,
                             max_value=len(available_dates) - 1,
+                            value=st.session_state.zip_animation_frame,
                             step=1,
                             key="zip_date_slider"
                         )
-                    
-                    # Auto-advance slider if animation is enabled
-                    if animate:
-                        import time
-                        if "zip_animation_running" not in st.session_state:
-                            st.session_state.zip_animation_running = True
-                        
-                        # Create placeholder for animation updates
-                        animation_placeholder = st.empty()
-                        
-                        if st.session_state.zip_animation_running:
-                            for idx in range(len(available_dates)):
-                                if idx > animated_date_idx:  # Continue from where slider was
-                                    st.session_state.zip_date_slider = idx
-                                    time.sleep(speed_delay)
-                                    st.rerun()
-                            # Reset animation flag when complete
-                            st.session_state.zip_animation_running = False
+                        st.session_state.zip_animation_frame = animated_date_idx
                     
                     # Use the selected/animated date
                     current_date = available_dates[animated_date_idx]
-                    st.write(f"**Viewing:** {current_date.strftime('%Y-%m-%d')}")
+                    st.write(f"**Viewing:** {current_date.strftime('%Y-%m-%d')} (Frame {animated_date_idx + 1}/{len(available_dates)})")
+                    
+                    # Handle animation advancement
+                    if animate and animated_date_idx < len(available_dates) - 1:
+                        import time
+                        time.sleep(speed_delay)
+                        st.session_state.zip_animation_frame += 1
+                        st.rerun()
+                    elif animate and animated_date_idx >= len(available_dates) - 1:
+                        # Animation complete, show reset option
+                        st.info("✅ Animation complete! Reset slider to play again.")
                     
                     # Filter choropleth data to match selected filters
                     choropleth_filtered = choropleth_df[
