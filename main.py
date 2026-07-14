@@ -72,7 +72,7 @@ def load_choropleth_data(file_path: str) -> pd.DataFrame:
 # ----------------------------
 file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet"
 forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
-choropleth_file_path = "data/raw_data/gold_data_dash/chicago_crimes_zipcode_choropleth.parquet"
+choropleth_file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_zipcode_choropleth.parquet"
 with st.spinner("Loading data..."):
     df = load_data(file_path)
     forecast_df = load_forecast_data(forecast_file_path)
