@@ -230,9 +230,6 @@ with tab_crimes:
     else:
         st.info("No crime composition data available for this report.")
 
-
-
-
 # --- Geographic Breakdown Tab ---
 with tab_geo:
     st.subheader("🏙️ Geographic Breakdown")
@@ -494,7 +491,6 @@ with tab_geo:
     else:
         st.info("No geographic breakdown data available for this report.")
 
-
 # --- Comparison Tab ---
 with tab_comparison:
     st.subheader("📉 Prior Period Comparison")
@@ -520,6 +516,8 @@ with tab_comparison:
             "Δ": "{:,.0f}",
             "% Change": "{:,.2f}%"
         }))
+
+# --- Forecasts Tab ---
 with tab_forecasts:
     st.subheader("📈 Monthly Crime Trends with Forecasts")
 
