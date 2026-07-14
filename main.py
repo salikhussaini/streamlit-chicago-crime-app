@@ -270,7 +270,7 @@ with tab_geo:
                         if animate:
                             speed = st.selectbox("Speed", options=["Slow", "Normal", "Fast", "Super Fast"], index=["Slow", "Normal", "Fast", "Super Fast"].index(st.session_state.zip_animation_speed), key="animation_speed_zip")
                             st.session_state.zip_animation_speed = speed
-                            speed_delay = {"Slow": 2.0, "Normal": 1.5, "Fast": 1.0, "Super Fast": 0.5}[speed]
+                            speed_delay = {"Slow": 2.0, "Normal": 1.5, "Fast": 1.0, "Super Fast": 0.15}[speed]
                         else:
                             speed_delay = 0
                     
@@ -283,19 +283,22 @@ with tab_geo:
                             step=1,
                             key="zip_date_slider"
                         )
+                    
+                    # Update session state only if slider was manually moved
+                    if animated_date_idx != st.session_state.zip_animation_frame:
                         st.session_state.zip_animation_frame = animated_date_idx
                     
-                    # Use the selected/animated date
-                    current_date = available_dates[animated_date_idx]
-                    st.write(f"**Viewing:** {current_date.strftime('%Y-%m-%d')} (Frame {animated_date_idx + 1}/{len(available_dates)})")
+                    # Use the current frame index
+                    current_date = available_dates[st.session_state.zip_animation_frame]
+                    st.write(f"**Viewing:** {current_date.strftime('%Y-%m-%d')} (Frame {st.session_state.zip_animation_frame + 1}/{len(available_dates)})")
                     
                     # Handle animation advancement
-                    if animate and animated_date_idx < len(available_dates) - 1:
+                    if animate and st.session_state.zip_animation_frame < len(available_dates) - 1:
                         import time
                         time.sleep(speed_delay)
                         st.session_state.zip_animation_frame += 1
                         st.rerun()
-                    elif animate and animated_date_idx >= len(available_dates) - 1:
+                    elif animate and st.session_state.zip_animation_frame >= len(available_dates) - 1:
                         # Animation complete, show reset option
                         st.info("✅ Animation complete! Reset slider to play again.")
                     
