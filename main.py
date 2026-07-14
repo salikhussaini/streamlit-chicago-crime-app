@@ -249,12 +249,12 @@ with tab_zipcode:
                 
                 # Prepare data for merge
                 choropleth_filtered["zip_code"] = choropleth_filtered["zip_code"].astype(str)
-                gdf["ZIP"] = gdf["ZIP"].astype(str)
+                gdf["zip"] = gdf["zip"].astype(str)
                 
                 # Merge choropleth data with geojson
                 merged = gdf.merge(
                     choropleth_filtered[["zip_code", "zip_code_crime_count", "total_cases"]],
-                    left_on="ZIP",
+                    left_on="zip",
                     right_on="zip_code",
                     how="left"
                 )
