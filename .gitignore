@@ -4,6 +4,7 @@ __pycache__/
 .env
 .venv/
 venv/
+*.log
 
 # Data
 data/raw_data/
@@ -19,3 +20,7 @@ data/transformed_data/
 # Execution Logs
 pipeline_execution.log
 pipeline_*.log
+# 
+frames/
+generate_choropleth_video.py
+chicago_crime_choropleths_r12.mp4
