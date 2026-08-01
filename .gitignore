@@ -41,3 +41,9 @@ pipeline_*.log
 frames/
 generate_choropleth_video.py
 chicago_crime_choropleths_r12.mp4
+# DATA FILES - Override gitignore for pipeline outputs
+!data/gold_data/*.parquet
+!data/raw_data/gold_data_dash/*.parquet
+!data/raw_data/*.csv
+!data/raw_data/raw_data_status.csv
+!data/raw_data/report_date_status.csv
