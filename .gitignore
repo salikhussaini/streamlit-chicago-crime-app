@@ -29,7 +29,6 @@ data/gold_data/gold_parquet_reports/*
 # Metadata
 !pipeline_run_metadata.json
 
-
 # Notebook checkpoints
 .ipynb_checkpoints/
 # VSCode
@@ -37,13 +36,8 @@ data/gold_data/gold_parquet_reports/*
 # Execution Logs
 pipeline_execution.log
 pipeline_*.log
-# 
+
+# Video generation
 frames/
 generate_choropleth_video.py
 chicago_crime_choropleths_r12.mp4
-# DATA FILES - Override gitignore for pipeline outputs
-!data/gold_data/*.parquet
-!data/raw_data/gold_data_dash/*.parquet
-!data/raw_data/*.csv
-!data/raw_data/raw_data_status.csv
-!data/raw_data/report_date_status.csv
