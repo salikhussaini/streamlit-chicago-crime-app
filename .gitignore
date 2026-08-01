@@ -6,12 +6,29 @@ __pycache__/
 venv/
 *.log
 
-# Data
-data/raw_data/
+# Data - Ignore most, but track pipeline outputs
+# Ignore all raw_data subdirectories except gold_data_dash
+data/raw_data/*
+!data/raw_data/gold_data_dash/
+data/raw_data/gold_data_dash/*
+!data/raw_data/gold_data_dash/*.parquet
+!data/raw_data/gold_data_dash/*.csv
+# Track status files
+!data/raw_data/*.csv
+
+# Ignore transformed data entirely
 data/transformed_data/
-# Allow only the final dashboard output to be tracked
+
+# Allow gold data outputs (final dashboard data)
+!data/gold_data/
+data/gold_data/*
 !data/gold_data/gold_parquet_reports/
-!data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet
+data/gold_data/gold_parquet_reports/*
+!data/gold_data/gold_parquet_reports/*.parquet
+
+# Metadata
+!pipeline_run_metadata.json
+
 
 # Notebook checkpoints
 .ipynb_checkpoints/
