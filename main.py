@@ -160,13 +160,19 @@ with tab_overview:
         for i in range(0, len(CASE_METRICS), 3):
             cols = st.columns(3)
             for c, m in zip(cols, CASE_METRICS[i:i+3]):
-                c.metric(label=m.replace("_", " ").title(), value=f"{snapshot[m]:,.0f}")
+                current_val = snapshot[m]
+                prior_val = snapshot.get(f"prior_{m}", None)
+                delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
+                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
 
         # Unique categories
         st.subheader("🔑 Unique Categories")
         cols = st.columns(min(3, len(UNIQUE_METRICS)))
         for c, m in zip(cols, UNIQUE_METRICS):
-            c.metric(label=m.replace("_", " ").title(), value=f"{snapshot[m]:,.0f}")
+            current_val = snapshot[m]
+            prior_val = snapshot.get(f"prior_{m}", None)
+            delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
+            c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
 
         # Crime type metrics (show first 6 as example)
         st.subheader("🚨 Crime Type Metrics")
@@ -174,7 +180,10 @@ with tab_overview:
         for i in range(0, min(6, len(CRIME_TYPE_METRICS)), 3):
             cols = st.columns(3)
             for c, m in zip(cols, CRIME_TYPE_METRICS[i:i+3]):
-                c.metric(label=m.replace("_", " ").title(), value=f"{snapshot[m]:,.0f}")
+                current_val = snapshot[m]
+                prior_val = snapshot.get(f"prior_{m}", None)
+                delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
+                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
 # --- Trends Tab ---
 with tab_trends:
     st.subheader("📈 Trends Over Time")
