@@ -154,6 +154,13 @@ tab_overview, tab_crimes, tab_geo, tab_trends, tab_comparison, tab_forecasts = s
 with tab_overview:
     if not filtered_df.empty:
         st.subheader("Summary Metrics")
+        
+        # Info about prior/YoY comparison
+        st.info(
+            "📅 **Year-over-Year (YoY) Comparison**: The percent change (%) shown next to each metric represents the change compared to the same period last year. "
+            "For example, a 12-month rolling report compares June 2020-June 2021 crimes to June 2019-June 2020 crimes. "
+            "Green ↑ indicates increase, Red ↓ indicates decrease."
+        )
 
         # Case counts
         st.subheader("📊 Case Counts")
@@ -162,8 +169,8 @@ with tab_overview:
             for c, m in zip(cols, CASE_METRICS[i:i+3]):
                 current_val = snapshot[m]
                 prior_val = snapshot.get(f"prior_{m}", None)
-                delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
-                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
+                pct_change = ((current_val - prior_val) / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else None
+                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=f"{pct_change:.1f}%" if pct_change is not None else None)
 
         # Unique categories
         st.subheader("🔑 Unique Categories")
@@ -171,19 +178,33 @@ with tab_overview:
         for c, m in zip(cols, UNIQUE_METRICS):
             current_val = snapshot[m]
             prior_val = snapshot.get(f"prior_{m}", None)
-            delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
-            c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
+            pct_change = ((current_val - prior_val) / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else None
+            c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=f"{pct_change:.1f}%" if pct_change is not None else None)
 
-        # Crime type metrics (show first 6 as example)
-        st.subheader("🚨 Crime Type Metrics")
-        cols = st.columns(min(3, len(CRIME_TYPE_METRICS)))
-        for i in range(0, min(6, len(CRIME_TYPE_METRICS)), 3):
+        # Crime type metrics (show top crime types by count - exclude FBI Code and IUCR)
+        top_n = 22
+        st.subheader(f"🚨 Crime Types (Top {top_n})")
+        
+        # Filter to only crime_ columns (exclude fbi_ and iucr_)
+        crime_cols_only = [m for m in CRIME_TYPE_METRICS if m.startswith("crime_")]
+        
+        # Sort crime types by current value
+        crime_type_sorted = sorted(
+            [(m, snapshot[m]) for m in crime_cols_only],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        
+        # Display top 15 crime types
+        top_crime_types = crime_type_sorted[:top_n]
+        
+        for i in range(0, len(top_crime_types), 3):
             cols = st.columns(3)
-            for c, m in zip(cols, CRIME_TYPE_METRICS[i:i+3]):
+            for c, (m, _) in zip(cols, top_crime_types[i:i+3]):
                 current_val = snapshot[m]
                 prior_val = snapshot.get(f"prior_{m}", None)
-                delta_val = (current_val - prior_val) if pd.notna(prior_val) else None
-                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=delta_val)
+                pct_change = ((current_val - prior_val) / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else None
+                c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=f"{pct_change:.1f}%" if pct_change is not None else None)
 # --- Trends Tab ---
 with tab_trends:
     st.subheader("📈 Trends Over Time")
@@ -229,13 +250,15 @@ with tab_crimes:
         crime_data = {col: snapshot[col] for col in crime_cols if col in snapshot}
         crime_df = pd.DataFrame(list(crime_data.items()), columns=[crime_metric_type, "Count"])
         crime_df = crime_df.sort_values("Count", ascending=False)
-        st.dataframe(crime_df)
         chart = alt.Chart(crime_df).mark_bar().encode(
             x=alt.X("Count:Q", sort="-y"),
             y=alt.Y(f"{crime_metric_type}:N", sort="-x"),
             tooltip=[crime_metric_type, "Count"]
         ).properties(width=600, height=400)
         st.altair_chart(chart, width='stretch')
+
+        st.dataframe(crime_df)
+
     else:
         st.info("No crime composition data available for this report.")
 
@@ -519,12 +542,12 @@ with tab_comparison:
             })
 
         comp_df = pd.DataFrame(comparison)
-        st.dataframe(comp_df.style.format({
-            "Current": "{:,.0f}",
-            "Prior": "{:,.0f}",
-            "Δ": "{:,.0f}",
-            "% Change": "{:,.2f}%"
-        }))
+        # Format numeric columns for display
+        comp_df["Current"] = comp_df["Current"].apply(lambda x: f"{x:,.0f}")
+        comp_df["Prior"] = comp_df["Prior"].apply(lambda x: f"{x:,.0f}")
+        comp_df["Δ"] = comp_df["Δ"].apply(lambda x: f"{x:,.0f}")
+        comp_df["% Change"] = comp_df["% Change"].apply(lambda x: f"{x:.2f}%" if pd.notna(x) else "N/A")
+        st.dataframe(comp_df)
 
 # --- Forecasts Tab ---
 with tab_forecasts:
@@ -549,6 +572,12 @@ with tab_forecasts:
 
         # Ensure the date column is a datetime type
         metric_data["date"] = pd.to_datetime(metric_data["date"])
+
+        # Add Slider for years
+        cutoff_years = st.slider('Select number of years to display', min_value=1, max_value=10, value=2)
+        # Filter to the selected number of years
+        cutoff_date = metric_data["date"].max() - pd.DateOffset(years=cutoff_years)
+        metric_data = metric_data[metric_data["date"] >= cutoff_date]
 
         if not metric_data.empty:
             # Melt the data for easier plotting with Altair
