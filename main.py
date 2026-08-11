@@ -182,6 +182,19 @@ with tab_overview:
                 pct_change = ((current_val - prior_val) / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else None
                 c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=f"{pct_change:.1f}%" if pct_change is not None else None)
 
+        # Arrest Efficiency
+        st.subheader("👮 Arrest Efficiency")
+        arrest_cols = st.columns(3)
+        with arrest_cols[0]:
+            st.metric("Total Cases", f"{snapshot['total_cases']:,.0f}")
+        with arrest_cols[1]:
+            st.metric("Total Arrests", f"{snapshot['total_arrests']:,.0f}")
+        with arrest_cols[2]:
+            arrest_rate = (snapshot['total_arrests'] / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
+            prior_arrest_rate = (snapshot.get('prior_total_arrests', 0) / snapshot.get('prior_total_cases', 1) * 100) if snapshot.get('prior_total_cases', 0) > 0 else 0
+            arrest_rate_change = arrest_rate - prior_arrest_rate if pd.notna(prior_arrest_rate) else None
+            st.metric("Arrest Rate %", f"{arrest_rate:.1f}%", delta=f"{arrest_rate_change:.1f}%" if arrest_rate_change is not None else None)
+
         # Unique categories
         st.subheader("🔑 Unique Categories")
         cols = st.columns(min(3, len(UNIQUE_METRICS)))
@@ -245,21 +258,7 @@ with tab_trends:
 with tab_crimes:
     st.subheader("🚨 Crime Composition & Patterns")
     if not filtered_df.empty:
-        
-        # ===== Section 1: Arrest Rate vs Case Count =====
-        st.subheader("👮 Arrest Efficiency")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Cases", f"{snapshot['total_cases']:,.0f}")
-        with col2:
-            st.metric("Total Arrests", f"{snapshot['total_arrests']:,.0f}")
-        with col3:
-            arrest_rate = (snapshot['total_arrests'] / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
-            prior_arrest_rate = (snapshot.get('prior_total_arrests', 0) / snapshot.get('prior_total_cases', 1) * 100) if snapshot.get('prior_total_cases', 0) > 0 else 0
-            arrest_rate_change = arrest_rate - prior_arrest_rate if pd.notna(prior_arrest_rate) else None
-            st.metric("Arrest Rate %", f"{arrest_rate:.1f}%", delta=f"{arrest_rate_change:.1f}%" if arrest_rate_change is not None else None)
-        
-        # ===== Section 2: Crime Mix Donut Charts =====
+        # ===== Section 1: Crime Mix Donut Charts =====
         st.subheader("📊 Crime Distribution")
         
         # Dropdown to select chart type
@@ -336,21 +335,28 @@ with tab_crimes:
         
         # ===== Section 4: Domestic Violence Tracking =====
         st.subheader("🏠 Domestic Violence")
-        col1, col2 = st.columns(2)
-        with col1:
-            domestic_cases = snapshot.get('total_domestic_cases', 0)
-            st.metric("Domestic Cases", f"{domestic_cases:,.0f}")
-        with col2:
-            prior_domestic = snapshot.get('prior_total_domestic_cases', None)
-            if pd.notna(prior_domestic) and prior_domestic > 0:
-                domestic_change = ((domestic_cases - prior_domestic) / prior_domestic * 100)
-                st.metric("YoY Change", f"{domestic_change:+.1f}%")
-            else:
-                st.metric("YoY Change", "N/A")
+        col1, col2, col3 = st.columns(3)
         
-        # Domestic violence as % of total
-        domestic_pct = (domestic_cases / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
-        st.write(f"**Domestic violence represents {domestic_pct:.1f}% of all cases**")
+        domestic_cases = snapshot.get('total_domestic_cases', 0)
+        prior_domestic = snapshot.get('prior_total_domestic_cases', None)
+        
+        # Domestic cases metric
+        with col1:
+            domestic_change_pct = ((domestic_cases - prior_domestic) / prior_domestic * 100) if pd.notna(prior_domestic) and prior_domestic > 0 else None
+            st.metric("Domestic Cases", f"{domestic_cases:,.0f}", delta=f"{domestic_change_pct:+.1f}%" if domestic_change_pct is not None else None)
+        
+        # Domestic as % of total
+        with col2:
+            domestic_pct = (domestic_cases / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
+            prior_total_cases = snapshot.get('prior_total_cases', None)
+            prior_domestic_pct = (prior_domestic / prior_total_cases * 100) if pd.notna(prior_domestic) and pd.notna(prior_total_cases) and prior_total_cases > 0 else None
+            domestic_pct_change = domestic_pct - prior_domestic_pct if prior_domestic_pct is not None else None
+            st.metric("% of Total Cases", f"{domestic_pct:.1f}%", delta=f"{domestic_pct_change:+.1f}%" if domestic_pct_change is not None else None)
+        
+        # YoY absolute change
+        with col3:
+            absolute_change = domestic_cases - prior_domestic if pd.notna(prior_domestic) else None
+            st.metric("Cases Change (YoY)", f"{absolute_change:+,.0f}" if absolute_change is not None else "N/A")
 
     else:
         st.info("No crime composition data available for this report.")
