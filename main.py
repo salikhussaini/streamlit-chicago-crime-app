@@ -70,9 +70,9 @@ def load_choropleth_data(file_path: str) -> pd.DataFrame:
 # ----------------------------
 # File Path
 # ----------------------------
-file_path = "data/gold_data/chicago_crimes_gold_reports_.parquet"
+file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_gold_reports_.parquet"
 forecast_file_path = "data/gold_data/crime_count_forecasts.csv"
-choropleth_file_path = "data/gold_data/chicago_crimes_zipcode_choropleth.parquet"
+choropleth_file_path = "data/gold_data/gold_parquet_reports/chicago_crimes_zipcode_choropleth.parquet"
 with st.spinner("Loading data..."):
     df = load_data(file_path)
     forecast_df = load_forecast_data(forecast_file_path)
@@ -137,9 +137,19 @@ if not filtered_df.empty:
     snapshot = filtered_df.iloc[0]
 
     st.subheader("🗓️ Reporting Period")
-    st.write(f"**Start Date:** {snapshot['start_date']:%Y-%m-%d}")
-    st.write(f"**End Date:** {snapshot['end_date']:%Y-%m-%d}")
-    st.write(f"**Report Date Generated:** {snapshot['report_date']}")
+    
+    # Extract dates
+    try:
+        start_date = pd.to_datetime(snapshot['report_start_date'])
+        end_date = pd.to_datetime(snapshot['report_end_date'])
+        prior_start_date = start_date - pd.Timedelta(days=365)
+        prior_end_date = end_date - pd.Timedelta(days=365)
+        
+        st.write(f"**Current Period:** {start_date:%Y-%m-%d} to {end_date:%Y-%m-%d}")
+        st.write(f"**Prior Year Same Period:** {prior_start_date:%Y-%m-%d} to {prior_end_date:%Y-%m-%d}")
+        st.write(f"**Report Date Generated:** {snapshot['report_date']}")
+    except (KeyError, TypeError):
+        st.write("Date information not available")
 
 # ----------------------------
 # Organize Dashboard into Tabs
@@ -181,10 +191,12 @@ with tab_overview:
             pct_change = ((current_val - prior_val) / prior_val * 100) if pd.notna(prior_val) and prior_val != 0 else None
             c.metric(label=m.replace("_", " ").title(), value=f"{current_val:,.0f}", delta=f"{pct_change:.1f}%" if pct_change is not None else None)
 
+
+        # slider default 5
+        slider_top_n = st.slider("Select Number of Top Crime Types", 5, 50, 5)
         # Crime type metrics (show top crime types by count - exclude FBI Code and IUCR)
-        top_n = 22
-        st.subheader(f"🚨 Crime Types (Top {top_n})")
-        
+        st.subheader(f"🚨 Crime Types (Top {slider_top_n})")
+
         # Filter to only crime_ columns (exclude fbi_ and iucr_)
         crime_cols_only = [m for m in CRIME_TYPE_METRICS if m.startswith("crime_")]
         
@@ -196,7 +208,7 @@ with tab_overview:
         )
         
         # Display top 15 crime types
-        top_crime_types = crime_type_sorted[:top_n]
+        top_crime_types = crime_type_sorted[:slider_top_n]
         
         for i in range(0, len(top_crime_types), 3):
             cols = st.columns(3)
@@ -231,33 +243,114 @@ with tab_trends:
 
 # --- Crime Composition Tab ---
 with tab_crimes:
-    st.subheader("🚨 Crime Composition")
+    st.subheader("🚨 Crime Composition & Patterns")
     if not filtered_df.empty:
-        # Dropdown to select metric type
-        crime_metric_type = st.selectbox(
-            "Select Crime Metric Type",
-            ("Crime Type", "FBI Code", "IUCR"),
-            key="crime_metric_type_select"
+        
+        # ===== Section 1: Arrest Rate vs Case Count =====
+        st.subheader("👮 Arrest Efficiency")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Cases", f"{snapshot['total_cases']:,.0f}")
+        with col2:
+            st.metric("Total Arrests", f"{snapshot['total_arrests']:,.0f}")
+        with col3:
+            arrest_rate = (snapshot['total_arrests'] / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
+            prior_arrest_rate = (snapshot.get('prior_total_arrests', 0) / snapshot.get('prior_total_cases', 1) * 100) if snapshot.get('prior_total_cases', 0) > 0 else 0
+            arrest_rate_change = arrest_rate - prior_arrest_rate if pd.notna(prior_arrest_rate) else None
+            st.metric("Arrest Rate %", f"{arrest_rate:.1f}%", delta=f"{arrest_rate_change:.1f}%" if arrest_rate_change is not None else None)
+        
+        # ===== Section 2: Crime Mix Donut Charts =====
+        st.subheader("📊 Crime Distribution")
+        
+        # Dropdown to select chart type
+        chart_type = st.selectbox(
+            "Select Crime Breakdown Type",
+            ("Crime Category", "Crime Type", "FBI Code", "IUCR"),
+            key="crime_mix_type_select"
         )
-
-        if crime_metric_type == "Crime Type":
-            crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("crime_")]
-        elif crime_metric_type == "FBI Code":
-            crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("fbi_")]
-        elif crime_metric_type == "IUCR":
-            crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("iucr_")]
-
-        crime_data = {col: snapshot[col] for col in crime_cols if col in snapshot}
-        crime_df = pd.DataFrame(list(crime_data.items()), columns=[crime_metric_type, "Count"])
-        crime_df = crime_df.sort_values("Count", ascending=False)
-        chart = alt.Chart(crime_df).mark_bar().encode(
-            x=alt.X("Count:Q", sort="-y"),
-            y=alt.Y(f"{crime_metric_type}:N", sort="-x"),
-            tooltip=[crime_metric_type, "Count"]
+        
+        if chart_type == "Crime Category":
+            # Original category mix
+            crime_mix = pd.DataFrame({
+                "Category": ["Violent Crimes", "Property Crimes", "Drug Crimes", "Other Crimes"],
+                "Count": [
+                    snapshot.get('total_violent_cases', 0),
+                    snapshot.get('total_property_cases', 0),
+                    snapshot.get('total_drug_cases', 0),
+                    snapshot['total_cases'] - snapshot.get('total_violent_cases', 0) - snapshot.get('total_property_cases', 0) - snapshot.get('total_drug_cases', 0)
+                ]
+            })
+            label_col = "Category"
+        else:
+            # Get crime type, FBI, or IUCR breakdown
+            if chart_type == "Crime Type":
+                crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("crime_")]
+            elif chart_type == "FBI Code":
+                crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("fbi_")]
+            else:  # IUCR
+                crime_cols = [col for col in CRIME_TYPE_METRICS if col.startswith("iucr_")]
+            
+            crime_data = {col.replace("crime_", "").replace("fbi_", "").replace("iucr_", "").replace("_", " ").title(): snapshot[col] 
+                         for col in crime_cols if col in snapshot}
+            crime_mix = pd.DataFrame(list(crime_data.items()), columns=[chart_type, "Count"])
+            crime_mix = crime_mix.sort_values("Count", ascending=False).head(10)  # Top 10 for readability
+            label_col = chart_type
+        
+        donut_chart = alt.Chart(crime_mix).mark_arc(innerRadius=50).encode(
+            theta="Count:Q",
+            color=alt.Color(f"{label_col}:N", scale=alt.Scale(scheme="tableau20")),
+            tooltip=[label_col, "Count"]
         ).properties(width=600, height=400)
-        st.altair_chart(chart, width='stretch')
-
-        st.dataframe(crime_df)
+        st.altair_chart(donut_chart, use_container_width=True)
+        
+        # ===== Section 3: Weekend vs Weekday Comparison =====
+        st.subheader("📅 Temporal Patterns")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Weekend Cases", f"{snapshot.get('total_weekend_cases', 0):,.0f}")
+        with col2:
+            st.metric("Weekday Cases", f"{snapshot['total_cases'] - snapshot.get('total_weekend_cases', 0):,.0f}")
+        with col3:
+            st.metric("Daytime Cases", f"{snapshot.get('total_daytime_cases', 0):,.0f}")
+        with col4:
+            st.metric("Nighttime Cases", f"{snapshot.get('total_nighttime_cases', 0):,.0f}")
+        
+        # Temporal comparison chart
+        temporal_data = pd.DataFrame({
+            "Period": ["Weekday", "Weekend", "Daytime", "Nighttime"],
+            "Cases": [
+                snapshot['total_cases'] - snapshot.get('total_weekend_cases', 0),
+                snapshot.get('total_weekend_cases', 0),
+                snapshot.get('total_daytime_cases', 0),
+                snapshot.get('total_nighttime_cases', 0)
+            ]
+        })
+        
+        temporal_chart = alt.Chart(temporal_data).mark_bar().encode(
+            x=alt.X("Period:N", sort=["Weekday", "Weekend", "Daytime", "Nighttime"]),
+            y="Cases:Q",
+            color=alt.Color("Period:N", scale=alt.Scale(scheme="set2")),
+            tooltip=["Period", "Cases"]
+        ).properties(width=600, height=300)
+        st.altair_chart(temporal_chart, use_container_width=True)
+        
+        # ===== Section 4: Domestic Violence Tracking =====
+        st.subheader("🏠 Domestic Violence")
+        col1, col2 = st.columns(2)
+        with col1:
+            domestic_cases = snapshot.get('total_domestic_cases', 0)
+            st.metric("Domestic Cases", f"{domestic_cases:,.0f}")
+        with col2:
+            prior_domestic = snapshot.get('prior_total_domestic_cases', None)
+            if pd.notna(prior_domestic) and prior_domestic > 0:
+                domestic_change = ((domestic_cases - prior_domestic) / prior_domestic * 100)
+                st.metric("YoY Change", f"{domestic_change:+.1f}%")
+            else:
+                st.metric("YoY Change", "N/A")
+        
+        # Domestic violence as % of total
+        domestic_pct = (domestic_cases / snapshot['total_cases'] * 100) if snapshot['total_cases'] > 0 else 0
+        st.write(f"**Domestic violence represents {domestic_pct:.1f}% of all cases**")
 
     else:
         st.info("No crime composition data available for this report.")
@@ -607,7 +700,7 @@ with tab_forecasts:
     else:
         st.warning("No forecast data available.")
 # ----------------------------
-DASHBOARD_VERSION = "v1.0.0"
+DASHBOARD_VERSION = "v1.1.0"
 # Sidebar enhancements
 st.sidebar.markdown(f"**Dashboard Version:** `{DASHBOARD_VERSION}`")
 st.sidebar.markdown(f"**Streamlit version:** `{st.__version__}`")
