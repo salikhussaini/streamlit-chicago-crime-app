@@ -305,14 +305,34 @@ with tab_crimes:
         # ===== Section 3: Weekend vs Weekday Comparison =====
         st.subheader("📅 Temporal Patterns")
         col1, col2, col3, col4 = st.columns(4)
+        
+        # Weekend cases with YoY change
         with col1:
-            st.metric("Weekend Cases", f"{snapshot.get('total_weekend_cases', 0):,.0f}")
+            weekend_cases = snapshot.get('total_weekend_cases', 0)
+            prior_weekend = snapshot.get('prior_total_weekend_cases', None)
+            weekend_pct_change = ((weekend_cases - prior_weekend) / prior_weekend * 100) if pd.notna(prior_weekend) and prior_weekend > 0 else None
+            st.metric("Weekend Cases", f"{weekend_cases:,.0f}", delta=f"{weekend_pct_change:+.1f}%" if weekend_pct_change is not None else None)
+        
+        # Weekday cases with YoY change
         with col2:
-            st.metric("Weekday Cases", f"{snapshot['total_cases'] - snapshot.get('total_weekend_cases', 0):,.0f}")
+            weekday_cases = snapshot['total_cases'] - snapshot.get('total_weekend_cases', 0)
+            prior_weekday = snapshot.get('prior_total_cases', 0) - snapshot.get('prior_total_weekend_cases', 0)
+            weekday_pct_change = ((weekday_cases - prior_weekday) / prior_weekday * 100) if prior_weekday > 0 else None
+            st.metric("Weekday Cases", f"{weekday_cases:,.0f}", delta=f"{weekday_pct_change:+.1f}%" if weekday_pct_change is not None else None)
+        
+        # Daytime cases with YoY change
         with col3:
-            st.metric("Daytime Cases", f"{snapshot.get('total_daytime_cases', 0):,.0f}")
+            daytime_cases = snapshot.get('total_daytime_cases', 0)
+            prior_daytime = snapshot.get('prior_total_daytime_cases', None)
+            daytime_pct_change = ((daytime_cases - prior_daytime) / prior_daytime * 100) if pd.notna(prior_daytime) and prior_daytime > 0 else None
+            st.metric("Daytime Cases", f"{daytime_cases:,.0f}", delta=f"{daytime_pct_change:+.1f}%" if daytime_pct_change is not None else None)
+        
+        # Nighttime cases with YoY change
         with col4:
-            st.metric("Nighttime Cases", f"{snapshot.get('total_nighttime_cases', 0):,.0f}")
+            nighttime_cases = snapshot.get('total_nighttime_cases', 0)
+            prior_nighttime = snapshot.get('prior_total_nighttime_cases', None)
+            nighttime_pct_change = ((nighttime_cases - prior_nighttime) / prior_nighttime * 100) if pd.notna(prior_nighttime) and prior_nighttime > 0 else None
+            st.metric("Nighttime Cases", f"{nighttime_cases:,.0f}", delta=f"{nighttime_pct_change:+.1f}%" if nighttime_pct_change is not None else None)
         
         # Temporal comparison chart
         temporal_data = pd.DataFrame({
